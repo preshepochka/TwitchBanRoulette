@@ -36,9 +36,9 @@ class ConfigManager:
         return ok
     
     def load(self) -> Config:
-        if self._config in None:
+        if self._config is None:
             self._config = self._load_raw()
-        return self.config
+        return self._config
     
     def _load_raw(self) -> Config:
         with open(self.config_path, "r", encoding="utf-8") as f:
