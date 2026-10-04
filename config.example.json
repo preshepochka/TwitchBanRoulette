@@ -1,0 +1,30 @@
+{
+  "twitch": {
+    "channel": "your_channel_name",
+    "token": "oauth:your_token_here"
+  },
+  "window": {
+    "width": 800,
+    "height": 200,
+    "background_color": [0, 255, 0]
+  },
+  "rewards": {
+    "timeout_60": {
+      "img": "assets/cards/timeout.png",
+      "chance": 40,
+      "action": "timeout",
+      "duration": 60
+    },
+    "ban": {
+      "img": "assets/cards/ban.png",
+      "chance": 5,
+      "action": "ban"
+    },
+    "funny_message": {
+      "img": "assets/cards/message.png",
+      "chance": 55,
+      "action": "message",
+      "text": "Wow, absolutely nothing"
+    }
+  }
+}
