@@ -7,7 +7,7 @@
   "window": {
     "width": 800,
     "height": 200,
-    "background_color": [0, 255, 0]
+    "chroma_key": [0, 255, 0]
   },
   "outcomes": {
     "timeout_60": {
