@@ -19,7 +19,7 @@ class RenderEvent(Enum):
 class Renderer:
     FPS = 60
 
-    def __init__(self, window_cfg: WindowConfig, card_paths: list[Path], pointer_path: Path | None = None):
+    def __init__(self, window_cfg: WindowConfig, card_paths: list[Path], overlay_path: Path | None = None):
         pygame.init()
         self.width = window_cfg.width
         self.height = window_cfg.height
@@ -33,7 +33,7 @@ class Renderer:
         self.clock = pygame.time.Clock()
         self.state = RenderState.IDLE
 
-        self._load_assets(card_paths, pointer_path)
+        self._load_assets(card_paths, overlay_path)
 
         self.strip: list[pygame.Surface] = []
         self.winner_index = 0
@@ -45,7 +45,7 @@ class Renderer:
 
         self._debug_spin = False
 
-    def _load_assets(self, card_paths: list[Path], pointer_path: Path | None) -> None:
+    def _load_assets(self, card_paths: list[Path], overlay_path: Path | None) -> None:
         self.cards = []
         for path in card_paths:
             img = pygame.image.load(str(path)).convert_alpha()
@@ -131,7 +131,7 @@ class Renderer:
             self.screen.blit(self.overlay, (0, 0))
         else:
             cx = self.width // 2
-            pygame.draw.line(self.screen, (255, 255, 255), (cx, 0), (cx, self.height), 3})
+            pygame.draw.line(self.screen, (255, 255, 255), (cx, 0), (cx, self.height), 3)
 
     def _highlight_winner(self) -> None:
         stride = self.card_w + self.gap

@@ -30,8 +30,8 @@ class ConfigManager:
             if not (base / o.img).exists():
                 print(f"{name}: image not found: {o.img}")
                 ok = False
-        if cfg.window.winner_pointer and not (base / cfg.window.winner_pointer).exists():
-            print(f"window.winner_pointer: file not found: {cfg.window.winner_pointer}")
+        if cfg.window.overlay and not (base / cfg.window.overlay).exists():
+            print(f"window.overlay: file not found: {cfg.window.overlay}")
             ok = False
         return ok
     
