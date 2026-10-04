@@ -28,8 +28,7 @@ class Renderer:
 
         self.key_color = tuple(window_cfg.chroma_key)
         self.card_w, self.card_h = window_cfg.card_size
-        self.pointer_w, self.pointer_h = window_cfg.pointer_size
-        self.gap = 10
+        self.gap = window_cfg.gap
 
         self.clock = pygame.time.Clock()
         self.state = RenderState.IDLE
@@ -53,11 +52,10 @@ class Renderer:
             img = pygame.transform.smoothscale(img, (self.card_w, self.card_h))
             self.cards.append(img)
 
-        self.pointer = None
-        if pointer_path is not None:
-            img = pygame.image.load(str(pointer_path)).convert_alpha()
-            self.pointer = pygame.transform.smooth_scale(
-                img, (self.pointer_w, self.pointer_h))
+        self.overlay = None
+        if overlay_path is not None:
+            img = pygame.image.load(str(overlay_path)).convert_alpha()
+            self.overlay = pygame.transform.smooth_scale(img, (self.width, self.height))
 
     def start_spin(self, sequence: list[int], winner_index: int, duration_s: float = 4.0) -> None:
         if self.state is not RenderState.IDLE:
@@ -93,7 +91,7 @@ class Renderer:
 
         if self.state is RenderState.SPINNING:
             self._draw_strip(self._current_scroll())
-            self._draw_pointer()
+            self._draw_overlay()
             if self._spin_finished():
                 self.state = RenderState.RESULT
                 self.result_start_ms = pygame.time.get_ticks()
@@ -101,8 +99,8 @@ class Renderer:
 
         elif self.state is RenderState.RESULT:
             self._draw_strip(self.scroll_to)
-            self._draw_pointer()
             self._highlight_winner()
+            self._draw_overlay()
             if pygame.time.get_ticks() - self.result_start_ms >= self.result_hold_ms:
                 self.state = RenderState.IDLE
                 frame_event = RenderEvent.RESULT_HIDDEN
@@ -128,15 +126,12 @@ class Renderer:
             if -stride < x < self.width + stride:  
                 self.screen.blit(card, (x, y))
 
-    def _draw_pointer(self) -> None:
-        cx = self.width // 2
-        cx = self.width // 2
-        if self.pointer is not None:
-            rect = self.pointer.get_rect(midtop=(cx, 0))
-            self.screen.blit(self.pointer, rect)
+    def _draw_overlay(self) -> None:
+        if self.overlay is not None:
+            self.screen.blit(self.overlay, (0, 0))
         else:
-            pygame.draw.line(self.screen, (255, 255, 255),
-                             (cx, 0), (cx, self.height), 3)
+            cx = self.width // 2
+            pygame.draw.line(self.screen, (255, 255, 255), (cx, 0), (cx, self.height), 3})
 
     def _highlight_winner(self) -> None:
         stride = self.card_w + self.gap
