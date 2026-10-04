@@ -1,14 +1,15 @@
 {
   "twitch": {
     "channel": "your_channel_name",
-    "token": "oauth:your_token_here"
+    "token": "oauth:your_token_here",
+    "reward_id": "twitch_reward_id"
   },
   "window": {
     "width": 800,
     "height": 200,
     "background_color": [0, 255, 0]
   },
-  "rewards": {
+  "outcomes": {
     "timeout_60": {
       "img": "assets/cards/timeout.png",
       "chance": 40,
