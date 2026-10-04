@@ -1,5 +1,7 @@
 import json
 from pathlib import Path
+from pydantic import ValidationError
+from config_schema import Config, Outcome, TwitchConfig, WindowConfig
 
 class ConfigManager:
     """Config manager"""
@@ -9,75 +11,44 @@ class ConfigManager:
             config_path: path to config.json file
         """
         self.config_path = Path(config_path)
-        self._config: dict = {}
-
-    def load(self) -> dict:
-        """Load config from file"""
-        with open(self.config_path, "r", encoding="utf-8") as f:
-            self._config = json.load(f)
-        print(f"Loading config from {self.config_path}")
-        print(f"Config: {self._config}")
-        return self._config
+        self._config: Config | None = None
     
-    def _ensure_loaded(self) -> None:
-        if not self._config:
-            self.load()
-
     def validate(self) -> bool:
-        """
-        Checks the correctness of the config
-    
-        Returns:
-            True if config correct, else False
-        """
-        self._ensure_loaded()
-        required_keys = {"img", "chance", "action"}
-        chances_sum = 0
-        img_exists_error = False
-        required_keys_error = False
-        print("Config validation")
-        for name, o in self._config.get("outcomes", {}).items():
-            chance = o.get("chance", 0)
-            
-            if not isinstance(chance, (int, float)):
-                print(f"{name}: chance must be a number, got {chance!r}")
-                required_keys_error = True
-                continue
-            chances_sum += chance
-            
-            missing = required_keys - o.keys()
-            if missing:
-                required_keys_error = True
-                print(f"{name}: missing keys {missing}")
-                continue
-
-            img_path = Path(o.get("img"))
-            if not img_path.exists():
-                img_exists_error = True
-                print(f"{name}: image {img_path} does not exists")
-            
-        twitch = self._config.get("twitch", {})
-        for key in ("channel", "token", "reward_id"):
-            if not twitch.get(key):
-                required_keys_error = True
-                print(f"twitch: missing or empty '{key}'")
-
-        if not img_exists_error and not required_keys_error and chances_sum == 100:
-            print("The config is valid")
-            return True
-        else:
-            print("The config is invalid")
+        try:
+            cfg = self._load_raw()
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            prinf(f"Cannot read config: {e}")
             return False
-            
+        except ValidationError as e:
+            print("Config is invalid:")
+            print(e)
+            return False
 
-
+        ok = True
+        base = self.config_path.parent
+        for name, o in cfg.outcomes.items():
+            if not (base / o.img).exists():
+                print(f"{name}: image not found: {o.img}")
+                ok = False
+        if cfg.window.winner_pointer and not (base / cfg.window.winner_pointer).exists():
+            print(f"window.winner_pointer: file not found: {cfg.window.winner_pointer}")
+            ok = False
+        return ok
     
-    def get_outcomes(self) -> list[dict]:
-        """Returns list of outcomes from config"""
-        self._ensure_loaded()
-        return list(self._config.get("outcomes", {}).values())
+    def load(self) -> Config:
+        if self._config in None:
+            self._config = self._load_raw()
+        return self.config
+    
+    def _load_raw(self) -> Config:
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            return Config.model_validate(json.load(f))
+    
+    def get_twitch(self) -> TwitchConfig:
+        return self.load().twitch
 
-    def get_window_settings(self) -> dict:
-        """Returns window settings"""
-        self._ensure_loaded()
-        return self._config.get("window", {})
+    def get_window(self) -> WindowConfig:
+        return self.load().window
+
+    def get_outcomes(self) -> dict[str, Outcome]:
+        return self.load().outcomes
