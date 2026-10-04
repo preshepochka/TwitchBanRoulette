@@ -14,6 +14,7 @@ class WindowConfig(StrictModel):
     chroma_key: tuple[int, int, int]
     card_size: tuple[int, int] = (200, 150)
     pointer_size: tuple[int,int] = (40, 40)
+    gap: int = 10
     winner_pointer: str | None = None
 
     @field_validator("chroma_key")

@@ -1,68 +1,146 @@
-from typing import Any
+import random
+from enum import Enum, auto
+from pathlib import Path
+import pygame
+from config_schema import WindowConfig
+
+
+class RenderState(Enum):
+    IDLE = auto()
+    SPINNING = auto()
+    RESULT = auto()
+
+
+class RenderEvent(Enum):
+    SPIN_FINISHED = auto()
+    RESULT_HIDDEN = auto()
+
 
 class Renderer:
-    """Render with pygame"""
+    FPS = 60
 
-    def __init__(self):
-        """Renderer initialization"""
-        self._window = None
-        self.width = 800
-        self.height = 200
+    def __init__(self, window_cfg: WindowConfig, card_paths: list[Path], pointer_path: Path | None = None):
+        pygame.init()
+        self.width = window_cfg.width
+        self.height = window_cfg.height
+        self.screen = pygame.display.set_mode((self.width, self.height), vsync=1)
+        pygame.display.set_caption("Twitch Ban Roulette")
 
-    def init(self, width: int = 800, height: int = 200) -> None:
-        """
-        Creates a pygame window
+        self.key_color = tuple(window_cfg.chroma_key)
+        self.card_w, self.card_h = window_cfg.card_size
+        self.pointer_w, self.pointer_h = window_cfg.pointer_size
+        self.gap = 10
 
-        Args:
-            width: window width
-            height: window height
-        """
-        # TODO: pygame initialization
-        self._width = width
-        self._height = height
-        print(f"initialization window {width}x{height}")
+        self.clock = pygame.time.Clock()
+        self.state = RenderState.IDLE
 
-    def draw_roulette(self, sequence: list[dict], position: float) -> None:
-        """
-        Draws a roulette in the current position
+        self._load_assets(card_paths, pointer_path)
 
-        Args:
-            sequence: list of cards
-            position: current position (pixels)
-        """
-        #TODO: Rendering
-        pass
-    def animate_spin(self, sequence: list[dict], duration: float = 3.0) -> dict:
-        """
-        Starts an animation
+        self.strip: list[pygame.Surface] = []
+        self.winner_index = 0
+        self.spin_start_ms = 0
+        self.spin_duration_ms = 0
+        self.scroll_to = 0.0
+        self.result_start_ms = 0
+        self.result_hold_ms = 3000
 
-        Args:
-            sequence: a sequence of cards
-            duration: duration of animation in seconds
+        self._debug_spin = False
 
-        Returns:
-            winner
-        """
-        print(f"Animation starts for {duration} seconds")
-        return {}
+    def _load_assets(self, card_paths: list[Path], pointer_path: Path | None) -> None:
+        self.cards = []
+        for path in card_paths:
+            img = pygame.image.load(str(path)).convert_alpha()
+            img = pygame.transform.smoothscale(img, (self.card_w, self.card_h))
+            self.cards.append(img)
 
-    def draw_winner(self, reward: dict) -> None:
-        """
-        Draws the result in center
+        self.pointer = None
+        if pointer_path is not None:
+            img = pygame.image.load(str(pointer_path)).convert_alpha()
+            self.pointer = pygame.transform.smooth_scale(
+                img, (self.pointer_w, self.pointer_h))
 
-        Args:
-            reward: data of winner
-        """
-        #TODO: Realize 
-        print(f"Winner {reward}")
+    def start_spin(self, sequence: list[int], winner_index: int, duration_s: float = 4.0) -> None:
+        if self.state is not RenderState.IDLE:
+            return
+        self.strip = [self.cards[i] for i in sequence]
+        self.winner_index = winner_index
+        self.spin_start_ms = pygame.time.get_ticks()
+        self.spin_duration_ms = int(duration_s * 1000)
 
-    def update(self) -> bool:
-        """
-        Processes events
+        stride = self.card_w + self.gap
+        jitter = random.uniform(-0.35, 0.35) * self.card_w
+        self.scroll_to = (winner_index * stride
+                          + self.card_w / 2
+                          - self.width / 2
+                          + jitter)
+        self.state = RenderState.SPINNING
 
-        Returns:
-            True if window opened, False if closed
-        """
-        #TODO: Realize events processing
+    def poll_events(self) -> bool:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                self._debug_spin = True
         return True
 
+    def pop_debug_spin(self) -> bool:
+        pressed, self._debug_spin = self._debug_spin, False
+        return pressed
+
+    def draw(self) -> RenderEvent | None:
+        self.screen.fill(self.key_color)
+        frame_event = None
+
+        if self.state is RenderState.SPINNING:
+            self._draw_strip(self._current_scroll())
+            self._draw_pointer()
+            if self._spin_finished():
+                self.state = RenderState.RESULT
+                self.result_start_ms = pygame.time.get_ticks()
+                frame_event = RenderEvent.SPIN_FINISHED
+
+        elif self.state is RenderState.RESULT:
+            self._draw_strip(self.scroll_to)
+            self._draw_pointer()
+            self._highlight_winner()
+            if pygame.time.get_ticks() - self.result_start_ms >= self.result_hold_ms:
+                self.state = RenderState.IDLE
+                frame_event = RenderEvent.RESULT_HIDDEN
+
+        pygame.display.flip()
+        self.clock.tick(self.FPS)
+        return frame_event
+
+    def _current_scroll(self) -> float:
+        t = (pygame.time.get_ticks() - self.spin_start_ms) / self.spin_duration_ms
+        t = min(t, 1.0)
+        eased = 1 - (1 - t) ** 3
+        return self.scroll_to * eased
+
+    def _spin_finished(self) -> bool:
+        return (pygame.time.get_ticks() - self.spin_start_ms) >= self.spin_duration_ms
+
+    def _draw_strip(self, scroll: float) -> None:
+        stride = self.card_w + self.gap
+        y = (self.height - self.card_h) // 2
+        for i, card in enumerate(self.strip):
+            x = int(i * stride - scroll)
+            if -stride < x < self.width + stride:  
+                self.screen.blit(card, (x, y))
+
+    def _draw_pointer(self) -> None:
+        cx = self.width // 2
+        cx = self.width // 2
+        if self.pointer is not None:
+            rect = self.pointer.get_rect(midtop=(cx, 0))
+            self.screen.blit(self.pointer, rect)
+        else:
+            pygame.draw.line(self.screen, (255, 255, 255),
+                             (cx, 0), (cx, self.height), 3)
+
+    def _highlight_winner(self) -> None:
+        stride = self.card_w + self.gap
+        x = int(self.winner_index * stride - self.scroll_to)
+        y = (self.height - self.card_h) // 2
+        rect = pygame.Rect(x - 3, y - 3, self.card_w + 6, self.card_h + 6)
+        pygame.draw.rect(self.screen, (255, 255, 255), rect, 3)
