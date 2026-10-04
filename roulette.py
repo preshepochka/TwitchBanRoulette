@@ -1,43 +1,37 @@
-from typing import Any
+import random
+from dataclasses import dataclass
+
+from config_schema import Outcome, WindowConfig
+
+
+@dataclass
+class SpinPlan:
+    sequence: list[int]
+    winner_index: int
+    winner_name: str
+
 
 class Roulette:
-    """Roulette logic"""
+    def __init__(self, outcomes: dict[str, Outcome], window_cfg: WindowConfig):
+        self.names = list(outcomes.keys())
+        self.weights = [outcomes[name].chance for name in self.names]
+        self._index = {name: i for i, name in enumerate(self.names)}
 
-    def __init__(self):
-        """Roulette initialization"""
-        self._rewards : list[dict] = []
+        stride = window_cfg.card_size[0] + window_cfg.gap
+        self._tail = window_cfg.width // stride + 2
 
-    def set_rewards(self, rewards: list[dict]) -> None:
-        """
-        Setting list of rewards
+    def pick_winner(self) -> str:
+        return random.choices(self.names, weights=self.weights, k=1)[0]
 
-        Args:
-            rewards: list of rewards from config
-        """
-        self._rewards = rewards
+    def generate_spin(self) -> SpinPlan:
+        winner_name = self.pick_winner()
+        winner_index = random.randint(20, 30)
+        length = winner_index + self._tail
 
-    def generate_sequence(self, lenght: int = 30) -> list[dict]:
-        """
-        Generates sequence of cards for displaying
+        # лента — случайная масса карточек, победитель в нужной позиции
+        sequence = [random.randrange(len(self.names)) for _ in range(length)]
+        sequence[winner_index] = self._index[winner_name]
 
-        Args:
-            lenght: count of cards in sequence
-
-        Returns:
-            list of cards in the display sequence
-        """
-        #TODO: result is determined here
-        # Other position generated randomly
-        print(f"Generating sequence for {lenght} cards")
-        return []
-
-    def spin(self) -> dict:
-        """
-        Rolling Roulette and return winner
-        
-        Returns:
-            dict with data about the winner
-        """
-        #TODO: choosing the winner
-        print("Rolling the roullette...")
-        return {}
+        return SpinPlan(sequence=sequence,
+                        winner_index=winner_index,
+                        winner_name=winner_name)
