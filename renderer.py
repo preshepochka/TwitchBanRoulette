@@ -55,7 +55,7 @@ class Renderer:
         self.overlay = None
         if overlay_path is not None:
             img = pygame.image.load(str(overlay_path)).convert_alpha()
-            self.overlay = pygame.transform.smooth_scale(img, (self.width, self.height))
+            self.overlay = pygame.transform.smoothscale(img, (self.width, self.height))
 
     def start_spin(self, sequence: list[int], winner_index: int, duration_s: float = 4.0) -> None:
         if self.state is not RenderState.IDLE:
