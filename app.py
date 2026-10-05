@@ -1,34 +1,46 @@
-from typing import Any
+from queue import Empty
+from renderer import RenderEvent, RenderState
 
 class App:
-    def __init__(self, config: Any, bot: Any, roulette: Any, renderer: Any):
+    def __init__(self, config, bot, roulette, renderer):
         self.config = config
         self.bot = bot
         self.roulette = roulette
         self.renderer = renderer
+        self.outcomes = config.outcomes
+        self._current = None
 
-        self.event_queue: list[dict] = []
+    def run(self):
+        self.bot.start()
+        running = True
+        while running:
+            running = self.renderer.poll_events()
+            self._step()
+        self.bot.stop()
 
-    def run(self) -> None:
-        """Main cycle"""
-        print("Connection call...")
-        self.bot.connect()
+    def _step(self):
+        if self.renderer.state is RenderState.IDLE:
+            self._try_start_spin()
 
-        print("Window initialization")
-        self.renderer.init()
+        event = self.renderer.draw()
+        if event is RenderEvent.SPIN_FINISHED and self._current:
+            self._apply_consequence()
 
-        print("Ready for work. Waiting for requests...")
+    def _try_start_spin(self):
+        try:
+            redemption = self.bot.queue.get_nowait()
+        except Empty:
+            return
+        plan = self.roulette.generate_spin()
+        self.renderer.start_spin(plan.sequence, plan.winner_index)
+        self._current = (redemption, plan)
 
-        #TODO: main cycle here
-        # while True:
-    
-    def on_reward_redeemed(self, reward_id: str, user: str) -> None:
-        """Bot Callback when request received"""
-        print(f"A request {reward_id} has been received from {user}")
-        self.event_queue.append({
-            "reward_id": reward_id,
-            "user": user
-        })
-    def _process_queue(self) -> None:
-        #TODO: processing events from the event_queue
-        pass
+    def _apply_consequence(self):
+        redemption, plan = self._current
+        outcome = self.outcomes[plan.winner_name]
+        self.bot.execute_action(outcome.action, redemption["user_id"],
+                                duration=outcome.duration, text=outcome.text)
+        self.bot.fulfill(redemption["id"])
+        print(f"[app] {redemption['user_name']} -> {plan.winner_name} "
+              f"({outcome.action})")
+        self._current = None

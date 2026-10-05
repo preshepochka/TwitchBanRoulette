@@ -5,6 +5,7 @@ class StrictModel(BaseModel):
 
 class TwitchConfig(StrictModel):
     channel: str
+    client_id: str
     token: str
     reward_id: str
 
