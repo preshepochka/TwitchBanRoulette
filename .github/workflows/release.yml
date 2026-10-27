@@ -9,23 +9,38 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+          - os: ubuntu-22.04
+            name: linux-x64
+          - os: macos-latest
+            name: macos-x64
+
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          architecture: "x64"
 
       - name: Install dependencies
         run: pip install -r requirements.txt pyinstaller
 
-      - name: Build exe
+      - name: Build binary
         run: pyinstaller main.py --onefile --clean --name TwitchBanRoulette
 
-      - name: Smoke test
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force smoke | Out-Null
           Set-Location smoke
@@ -38,7 +53,25 @@ jobs:
           if (-not (Test-Path ..\dist\assets\cards\timeout.png)) { throw "placeholders were not created" }
           if (-not (Test-Path ..\dist\assets\sounds\spin.wav)) { throw "placeholder sounds were not created" }
 
-      - name: Package
+      - name: Smoke test (Linux / macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -e
+          mkdir -p smoke && cd smoke
+          set +e
+          output=$(../dist/TwitchBanRoulette 2>&1); code=$?
+          set -e
+          echo "$output"
+          [ "$code" -ne 0 ] || { echo "::error::unexpected exit code 0, config error expected"; exit 1; }
+          echo "$output" | grep -q "config file not found" || { echo "::error::expected config error message"; exit 1; }
+          ../dist/TwitchBanRoulette --placeholders --force
+          [ -f ../dist/assets/cards/timeout.png ] || { echo "::error::placeholders were not created"; exit 1; }
+          [ -f ../dist/assets/sounds/spin.wav ] || { echo "::error::placeholder sounds were not created"; exit 1; }
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force pkg\assets | Out-Null
           Copy-Item dist\TwitchBanRoulette.exe pkg\
@@ -46,17 +79,37 @@ jobs:
           Copy-Item config.example.toml pkg\
           Copy-Item README.md pkg\
           Copy-Item README.ru.md pkg\
-          Compress-Archive -Path pkg\* -DestinationPath TwitchBanRoulette-windows.zip
+          Compress-Archive -Path pkg\* -DestinationPath TwitchBanRoulette-${{ matrix.name }}.zip
+
+      - name: Package (Linux / macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -e
+          if ! command -v zip >/dev/null; then sudo apt-get update -y && sudo apt-get install -y zip; fi
+          mkdir -p pkg/assets
+          cp dist/TwitchBanRoulette pkg/
+          cp -r assets/. pkg/assets/
+          cp config.example.toml README.md README.ru.md pkg/
+          (cd pkg && zip -qr ../TwitchBanRoulette-${{ matrix.name }}.zip .)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TwitchBanRoulette-windows
-          path: TwitchBanRoulette-windows.zip
+          name: TwitchBanRoulette-${{ matrix.name }}
+          path: TwitchBanRoulette-${{ matrix.name }}.zip
 
-      - name: Create release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          files: TwitchBanRoulette-windows.zip
+          merge-multiple: true
+          path: dist-zips
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist-zips/*.zip
           generate_release_notes: true

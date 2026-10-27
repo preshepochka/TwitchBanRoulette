@@ -2,7 +2,7 @@
 
 ## What this is
 
-Local desktop app for streamers: viewers redeem a Twitch channel-points reward, a pygame window (captured in OBS via chroma key) spins a strip of outcome cards, and the bot applies the winning outcome (timeout/ban/message) to that viewer. No web server; a Windows exe is built by CI (see Release).
+Local desktop app for streamers: viewers redeem a Twitch channel-points reward, a pygame window (captured in OBS via chroma key) spins a strip of outcome cards, and the bot applies the winning outcome (timeout/ban/message) to that viewer. No web server; Windows/Linux/macOS (x86_64) binaries are built by CI (see Release).
 
 ## Layout & run model
 
@@ -24,8 +24,8 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
 
 ## Release
 
-- Windows exe is built **only on GitHub Actions** (`.github/workflows/release.yml`, `windows-latest`): a push of a `v*` tag (or a manual `workflow_dispatch`) builds PyInstaller onefile, smoke-tests it (config error exit + `--placeholders --force` writing assets), zips exe + `assets/` + `config.example.toml` + READMEs and attaches it to the Release. Do not try to build exe locally — PyInstaller does not cross-compile, and Wine on aarch64 is not viable.
-- Release zip layout: `TwitchBanRoulette.exe`, `assets/`, `config.example.toml`, `README.md`, `README.ru.md`. When frozen, `main.py` looks for `config.toml` next to the exe (`modes.app_root()`).
+- Binaries are built **only on GitHub Actions** (`.github/workflows/release.yml`): a push of a `v*` tag (or a manual `workflow_dispatch`) runs a build matrix — `windows-latest`, `ubuntu-22.04` (glibc 2.35 baseline), `macos-latest` with `setup-python architecture: x64` (Intel build; runs on Apple Silicon via Rosetta). Each job builds PyInstaller onefile, smoke-tests it (config error exit + `--placeholders --force` writing assets) and zips binary + `assets/` + `config.example.toml` + READMEs; a separate `release` job (needs: build) downloads all artifacts and attaches the three zips to the Release. Do not try to build binaries locally — PyInstaller does not cross-compile, and Wine on aarch64 is not viable.
+- Release zip names: `TwitchBanRoulette-{windows-x64,linux-x64,macos-x64}.zip`; zip layout: the binary, `assets/`, `config.example.toml`, `README.md`, `README.ru.md`. When frozen, `main.py` looks for `config.toml` next to the binary (`modes.app_root()`). All debug modes are CLI flags on the same binary (`main.py --demo/--renderer/--test/--placeholders/--list-rewards`); `scripts/*.py` are thin wrappers over `modes.py` kept for source runs.
 
 ## Config gotchas
 

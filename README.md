@@ -13,15 +13,47 @@ Everything runs locally on the streamer's computer: no web server, no public IP,
 
 Outcomes are fully yours to define: you decide how many there are, what each card looks like, how likely it is, what it does and whether it makes a sound.
 
-## Requirements
+## Download a ready build
+
+The easiest way — no Python at all: grab a prebuilt binary from [Releases](https://github.com/preshepochka/TwitchBanRoulette/releases), unzip it and edit `config.toml` next to the binary (copy it from `config.example.toml`).
+
+| Download | Runs on |
+|---|---|
+| `TwitchBanRoulette-windows-x64.zip` | Windows 10 and newer (x86_64) |
+| `TwitchBanRoulette-linux-x64.zip` | Linux x86_64 with glibc 2.35+ — Ubuntu 22.04+, Mint 21+, Debian 12+, Arch and friends |
+| `TwitchBanRoulette-macos-x64.zip` | macOS 12+ (x86_64; also runs on Apple Silicon via Rosetta 2) |
+
+How to run:
+
+- **Windows** — `TwitchBanRoulette.exe` (double-click or from a terminal). SmartScreen may warn about the unsigned binary — *More info* → *Run anyway*. The black console window **is the log** (redemptions, results, errors) — keep it open while streaming.
+- **Linux** — `./TwitchBanRoulette` from a terminal. On something older than the glibc baseline (or on ARM), just run from source instead — see [Run from source](#run-from-source).
+- **macOS** — files downloaded from the internet carry a quarantine mark; clear it once, then run:
+  ```bash
+  xattr -cr TwitchBanRoulette
+  ./TwitchBanRoulette
+  ```
+
+All debug modes work on every platform (prefix with the binary name for the exe, `python main.py` for sources):
+
+| Flag | What it does |
+|---|---|
+| *(none)* | The real bot (needs `[twitch]` in config.toml) |
+| `--demo` | Demo: fake bot, no config/Twitch needed |
+| `--renderer` | Window only: **Space** spins — check how new card art looks |
+| `--test` | Full pipeline with the fake bot on your config.toml |
+| `--placeholders` | Create placeholder assets (existing files are kept) |
+| `--placeholders --force` | Regenerate all placeholder assets, overwriting |
+| `--list-rewards` | Print channel-points reward IDs (needs credentials) |
+
+## Run from source
+
+Requirements:
 
 - Python **3.11** or newer (tested on 3.11–3.13; on 3.14 install `pygame-ce` instead of `pygame` — official pygame has no 3.14 builds yet, see [Troubleshooting](#troubleshooting))
 - `pip`
 - OBS (or any other window-capture software) if you want the roulette on stream
 
 On Windows, use the `py` launcher or `python` — the `python3` command often doesn't exist there, and a bare `python` may be a Microsoft Store stub that silently does nothing (Settings → Apps → Advanced app settings → App execution aliases → turn off *python.exe* / *python3.exe*). Run the program from an open terminal, not by double-clicking — errors stay visible, and a fatal error now waits for Enter before closing anyway.
-
-## Quick start
 
 ```bash
 git clone https://github.com/preshepochka/TwitchBanRoulette.git
@@ -46,26 +78,6 @@ python scripts/demo.py        # Windows: py scripts/demo.py
 A window opens and spins automatically every ~5 seconds. Press **Space** for a manual spin. The demo uses placeholder cards, sounds and a fake Twitch bot — nothing leaves your computer.
 
 Once you've seen it work, continue with the [Twitch setup](#twitch-setup) below.
-
-## Download & run (Windows)
-
-No Python at all is needed if you grab the prebuilt exe: open [Releases](https://github.com/preshepochka/TwitchBanRoulette/releases), download `TwitchBanRoulette-windows.zip` from the latest release, unzip it anywhere and edit `config.toml` next to the exe. Then just run `TwitchBanRoulette.exe`.
-
-- Windows may show a **SmartScreen** warning for the unsigned exe — *More info* → *Run anyway*.
-- The black console window that appears **is the log** (redemptions, results, errors) — keep it open, close it only when done.
-- All debug modes work from the exe too:
-
-| Command | What it does |
-|---|---|
-| `TwitchBanRoulette.exe` | The real bot (needs `[twitch]` in config.toml) |
-| `TwitchBanRoulette.exe --demo` | Demo: fake bot, no config/Twitch needed |
-| `TwitchBanRoulette.exe --renderer` | Window only: **Space** spins — check how new card art looks |
-| `TwitchBanRoulette.exe --test` | Full pipeline with the fake bot on your config.toml |
-| `TwitchBanRoulette.exe --placeholders` | Create placeholder assets (existing files are kept) |
-| `TwitchBanRoulette.exe --placeholders --force` | Regenerate all placeholder assets, overwriting |
-| `TwitchBanRoulette.exe --list-rewards` | Print channel-points reward IDs (needs credentials) |
-
-The same flags work with the sources: `python main.py --demo`, `python main.py --renderer`, and so on. The individual `scripts/*.py` entry points are kept as thin wrappers for convenience.
 
 ## Twitch setup
 
@@ -349,7 +361,7 @@ The real bot (needs the `[twitch]` section):
 python main.py
 ```
 
-The no-Twitch demo — auto-redemptions every ~5 s, **Space** for a manual spin (see the [flag table](#download--run-windows) above for more debug modes):
+The no-Twitch demo — auto-redemptions every ~5 s, **Space** for a manual spin (see the [flag table](#download-a-ready-build) above for more debug modes):
 
 ```bash
 python scripts/demo.py        # Windows: py scripts/demo.py
@@ -379,6 +391,10 @@ python -c "import pygame.image; print(pygame.image.get_extended(), pygame.image.
 ```
 
 `False` / `None` in the output means no image format support.
+
+**Linux: `error while loading shared libraries: ... version 'GLIBC_2.xx' not found`** — your distro ships an older glibc than the build baseline (2.35, built on Ubuntu 22.04). Update the distro or run from source — no build step is needed for that.
+
+**macOS: "'TwitchBanRoulette' is damaged and can't be opened"** — the Gatekeeper quarantine on an unsigned binary. Run `xattr -cr TwitchBanRoulette` in the unzipped folder (see [Download a ready build](#download-a-ready-build)).
 
 **No sounds.** Check, in order: the `[sounds]` section exists and points to real files; `enabled` is not `false`; the files are WAV/OGG, not MP3; and the machine actually has an audio device — without one the app logs `audio device unavailable, sounds are disabled` and keeps running silently.
 
