@@ -18,14 +18,17 @@ def main():
         raise SystemExit(1)
     cfg = manager.load()
 
-    base = manager.config_path.parent
-    card_paths = [base / o.image for o in cfg.outcomes.values()]
-    overlay_path = (base / cfg.window.overlay) if cfg.window.overlay else None
+    if cfg.twitch is None:
+        logging.getLogger(__name__).error(
+            "[twitch] section is required to run the real bot; "
+            "for local testing use scripts/demo.py")
+        raise SystemExit(1)
 
     twitch = cfg.twitch
     bot = Bot(twitch.client_id, twitch.token, twitch.channel, twitch.reward_id)
-    renderer = Renderer(cfg.window, card_paths, overlay_path)
-    roulette = Roulette(cfg.outcomes, cfg.window)
+    renderer = Renderer(cfg.window, manager.card_paths(),
+                        manager.overlay_path(), manager.background_path())
+    roulette = Roulette(cfg.outcomes, cfg.window, cfg.roulette)
 
     app = App(cfg, bot, roulette, renderer)
     app.run()

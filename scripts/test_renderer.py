@@ -9,13 +9,9 @@ def main() -> None:
         raise SystemExit("Invalid config")
     cfg = manager.load()
 
-    base = manager.config_path.parent
-    outcomes = list(cfg.outcomes.items())            # [(name, Outcome), ...]
-    card_paths = [base / o.image for _, o in outcomes]
-    overlay_path = (base / cfg.window.overlay) if cfg.window.overlay else None
-
-    renderer = Renderer(cfg.window, card_paths, overlay_path)
-    roulette = Roulette(cfg.outcomes, cfg.window)
+    renderer = Renderer(cfg.window, manager.card_paths(),
+                        manager.overlay_path(), manager.background_path())
+    roulette = Roulette(cfg.outcomes, cfg.window, cfg.roulette)
     print("Window started. Space — roll.")
 
     last_winner = None

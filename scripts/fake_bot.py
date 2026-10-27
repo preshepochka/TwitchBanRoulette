@@ -38,5 +38,14 @@ class FakeBot:
     def send_chat_message(self, text):
         print(f"[fake-bot] message: {text!r}")
 
+    def create_poll(self, title, choices, duration):
+        print(f"[fake-bot] poll {duration}s: {title!r} choices={list(choices)}")
+
+    def add_vip(self, user_id):
+        print(f"[fake-bot] vip+ {user_id}")
+
+    def remove_vip(self, user_id):
+        print(f"[fake-bot] vip- {user_id}")
+
     def fulfill_redemption(self, redemption_id):
         print(f"[fake-bot] fulfill {redemption_id}")

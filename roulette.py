@@ -1,7 +1,7 @@
 import random
 from dataclasses import dataclass
 
-from config_schema import Outcome, WindowConfig
+from config_schema import Outcome, RouletteConfig, WindowConfig
 
 
 @dataclass
@@ -12,11 +12,14 @@ class SpinPlan:
 
 
 class Roulette:
-    def __init__(self, outcomes: dict[str, Outcome], window_cfg: WindowConfig):
+    def __init__(self, outcomes: dict[str, Outcome], window_cfg: WindowConfig,
+                 roulette_cfg: RouletteConfig | None = None):
         self.names = list(outcomes.keys())
         self.weights = [outcomes[name].weight for name in self.names]
         self._index = {name: i for i, name in enumerate(self.names)}
 
+        rc = roulette_cfg or RouletteConfig()
+        self._lead = rc.lead_cards
         stride = window_cfg.card_size[0] + window_cfg.gap
         self._tail = window_cfg.width // stride + 2
 
@@ -25,7 +28,7 @@ class Roulette:
 
     def generate_spin(self) -> SpinPlan:
         winner_name = self.pick_winner()
-        winner_index = random.randint(20, 30)
+        winner_index = random.randint(*self._lead)
         length = winner_index + self._tail
 
         # лента — случайная масса карточек, победитель в нужной позиции

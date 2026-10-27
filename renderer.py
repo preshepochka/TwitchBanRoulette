@@ -2,7 +2,8 @@ import random
 from enum import Enum, auto
 from pathlib import Path
 import pygame
-from config_schema import WindowConfig
+from config_schema import (ColorBackground, HighlightStyle, ImageBackground,
+                           WindowConfig)
 
 
 class RenderState(Enum):
@@ -17,41 +18,54 @@ class RenderEvent(Enum):
 
 
 class Renderer:
-    FPS = 60
-
-    def __init__(self, window_cfg: WindowConfig, card_paths: list[Path], overlay_path: Path | None = None):
+    def __init__(self, window_cfg: WindowConfig, card_paths: list[Path],
+                 overlay_path: Path | None = None,
+                 background_path: Path | None = None):
         pygame.init()
         self.width = window_cfg.width
         self.height = window_cfg.height
         self.screen = pygame.display.set_mode((self.width, self.height), vsync=1)
-        pygame.display.set_caption("Twitch Ban Roulette")
+        pygame.display.set_caption(window_cfg.title)
 
         self.key_color = tuple(window_cfg.chroma_key)
         self.card_w, self.card_h = window_cfg.card_size
         self.gap = window_cfg.gap
+        self.highlight: HighlightStyle = window_cfg.highlight
+        self.fps = window_cfg.fps
+        self.spin_duration_ms = int(window_cfg.spin_duration * 1000)
+        self.result_hold_ms = int(window_cfg.result_hold * 1000)
 
         self.clock = pygame.time.Clock()
         self.state = RenderState.IDLE
 
-        self._load_assets(card_paths, overlay_path)
+        self._load_assets(window_cfg, card_paths, overlay_path, background_path)
 
         self.strip: list[pygame.Surface] = []
         self.winner_index = 0
         self.spin_start_ms = 0
-        self.spin_duration_ms = 0
         self.scroll_to = 0.0
         self.result_start_ms = 0
-        self.result_hold_ms = 3000
 
         self._debug_spin = False
 
-    def _load_assets(self, card_paths: list[Path], overlay_path: Path | None) -> None:
+    def _load_assets(self, window_cfg: WindowConfig, card_paths: list[Path],
+                     overlay_path: Path | None,
+                     background_path: Path | None) -> None:
         self.cards = [self._load_image(p, (self.card_w, self.card_h))
                       for p in card_paths]
 
         self.overlay = None
         if overlay_path is not None:
             self.overlay = self._load_image(overlay_path, (self.width, self.height))
+
+        self.background_spec = window_cfg.background
+        self.bg_surface = None
+        if isinstance(self.background_spec, ImageBackground):
+            if background_path is None:
+                raise ValueError("background type is 'image' "
+                                 "but no background path was provided")
+            self.bg_surface = self._load_image(background_path,
+                                               (self.width, self.height))
 
     @staticmethod
     def _load_image(path: Path, size: tuple[int, int]) -> pygame.Surface:
@@ -65,13 +79,12 @@ class Renderer:
             ) from e
         return pygame.transform.smoothscale(img, size)
 
-    def start_spin(self, sequence: list[int], winner_index: int, duration_s: float = 4.0) -> None:
-        if self.state is not RenderState.IDLE:
+    def start_spin(self, sequence: list[int], winner_index: int) -> None:
+        if self.state is RenderState.SPINNING:
             return
         self.strip = [self.cards[i] for i in sequence]
         self.winner_index = winner_index
         self.spin_start_ms = pygame.time.get_ticks()
-        self.spin_duration_ms = int(duration_s * 1000)
 
         stride = self.card_w + self.gap
         jitter = random.uniform(-0.35, 0.35) * self.card_w
@@ -94,7 +107,7 @@ class Renderer:
         return pressed
 
     def draw(self) -> RenderEvent | None:
-        self.screen.fill(self.key_color)
+        self._draw_background()
         frame_event = None
 
         if self.state is RenderState.SPINNING:
@@ -114,8 +127,16 @@ class Renderer:
                 frame_event = RenderEvent.RESULT_HIDDEN
 
         pygame.display.flip()
-        self.clock.tick(self.FPS)
+        self.clock.tick(self.fps)
         return frame_event
+
+    def _draw_background(self) -> None:
+        if self.bg_surface is not None:
+            self.screen.blit(self.bg_surface, (0, 0))
+        elif isinstance(self.background_spec, ColorBackground):
+            self.screen.fill(tuple(self.background_spec.color))
+        else:
+            self.screen.fill(self.key_color)
 
     def _current_scroll(self) -> float:
         t = (pygame.time.get_ticks() - self.spin_start_ms) / self.spin_duration_ms
@@ -131,7 +152,7 @@ class Renderer:
         y = (self.height - self.card_h) // 2
         for i, card in enumerate(self.strip):
             x = int(i * stride - scroll)
-            if -stride < x < self.width + stride:  
+            if -stride < x < self.width + stride:
                 self.screen.blit(card, (x, y))
 
     def _draw_overlay(self) -> None:
@@ -142,8 +163,12 @@ class Renderer:
             pygame.draw.line(self.screen, (255, 255, 255), (cx, 0), (cx, self.height), 3)
 
     def _highlight_winner(self) -> None:
+        if not self.highlight.enabled:
+            return
         stride = self.card_w + self.gap
         x = int(self.winner_index * stride - self.scroll_to)
         y = (self.height - self.card_h) // 2
         rect = pygame.Rect(x - 3, y - 3, self.card_w + 6, self.card_h + 6)
-        pygame.draw.rect(self.screen, (255, 255, 255), rect, 3)
+        pygame.draw.rect(self.screen, tuple(self.highlight.color), rect,
+                         self.highlight.thickness,
+                         border_radius=self.highlight.radius)

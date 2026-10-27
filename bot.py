@@ -102,6 +102,24 @@ class Bot:
                               "id": redemption_id},
                       json={"status": "FULFILLED"})
 
+    def create_poll(self, title: str, choices: list[str], duration: int) -> None:
+        bid = self.get_broadcaster_id()
+        self._request("POST", "/polls",
+                      json={"broadcaster_id": bid,
+                            "title": title,
+                            "choices": [{"title": c} for c in choices],
+                            "duration": duration})
+
+    def add_vip(self, user_id: str) -> None:
+        self._request("POST", "/moderation/vips",
+                      params={"broadcaster_id": self.get_broadcaster_id(),
+                              "user_id": user_id})
+
+    def remove_vip(self, user_id: str) -> None:
+        self._request("DELETE", "/moderation/vips",
+                      params={"broadcaster_id": self.get_broadcaster_id(),
+                              "user_id": user_id})
+
     def _ban_or_timeout(self, user_id: str, seconds: int | None) -> None:
         body: dict = {"user_id": user_id}
         if seconds is not None:

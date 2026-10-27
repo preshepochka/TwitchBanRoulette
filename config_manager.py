@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from config_schema import Config
+from config_schema import Config, ImageBackground
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +43,10 @@ class ConfigManager:
             log.error("window.overlay: file not found: %s",
                       cfg.window.overlay)
             ok = False
+        bg = cfg.window.background
+        if isinstance(bg, ImageBackground) and not (base / bg.image).exists():
+            log.error("window.background: image not found: %s", bg.image)
+            ok = False
         return ok
 
     def load(self) -> Config:
@@ -53,6 +57,18 @@ class ConfigManager:
     def _load_raw(self) -> Config:
         with open(self.config_path, "rb") as f:
             return Config.model_validate(tomllib.load(f))
+
+    def card_paths(self) -> list[Path]:
+        base = self.config_path.parent
+        return [base / o.image for o in self.load().outcomes.values()]
+
+    def overlay_path(self) -> Path | None:
+        overlay = self.load().window.overlay
+        return (self.config_path.parent / overlay) if overlay else None
+
+    def background_path(self) -> Path | None:
+        bg = self.load().window.background
+        return (self.config_path.parent / bg.image) if isinstance(bg, ImageBackground) else None
 
 
 def _format_errors(e: ValidationError) -> str:

@@ -2,10 +2,13 @@ import logging
 from queue import Empty
 
 from bot import TwitchError
+from config_schema import RerollAction
 from outcomes import apply
 from renderer import RenderEvent, RenderState
 
 log = logging.getLogger(__name__)
+
+MAX_REROLL_CHAIN = 8
 
 
 class App:
@@ -37,14 +40,25 @@ class App:
             redemption = self.bot.queue.get_nowait()
         except Empty:
             return
+        self._start_spin(redemption, 0)
+
+    def _start_spin(self, redemption: dict, rerolls: int) -> None:
         plan = self.roulette.generate_spin()
         self.renderer.start_spin(plan.sequence, plan.winner_index)
-        self._current = (redemption, plan)
+        self._current = (redemption, plan, rerolls)
 
     def _apply_consequence(self):
-        redemption, plan = self._current
+        redemption, plan, rerolls = self._current
         outcome = self.outcomes[plan.winner_name]
-        ok = apply(self.bot, outcome.action, redemption["user_id"])
+
+        if isinstance(outcome.action, RerollAction) and rerolls < MAX_REROLL_CHAIN:
+            log.info("%s -> %s (reroll #%d)", redemption["user_name"],
+                     plan.winner_name, rerolls + 1)
+            self._start_spin(redemption, rerolls + 1)
+            return
+
+        ok = apply(self.bot, outcome.action, redemption["user_id"],
+                   redemption["user_name"])
         if ok:
             try:
                 self.bot.fulfill_redemption(redemption["id"])

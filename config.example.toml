@@ -1,5 +1,7 @@
 # TwitchBanRoulette configuration.
 # Copy this file to config.toml and fill it in.
+# For local testing without Twitch, delete the whole [twitch] section
+# and run scripts/demo.py instead of main.py.
 
 [twitch]
 # Your Twitch channel name, as in the URL twitch.tv/<channel>.
@@ -17,15 +19,28 @@ reward_id = "your_reward_id"
 # Window size in pixels (capture this window in OBS).
 width = 800
 height = 200
-# OBS chroma key color (RGB). This color must not appear in card art or overlay.
+# OBS chroma key color (RGB). Must not appear in card art or overlay.
 chroma_key = [0, 255, 0]
 # Optional PNG drawn on top of everything (frame, pointer, logo).
 # Alpha transparency; must be sized width x height.
 overlay = "assets/overlay.png"
+# Animation and appearance; defaults are shown commented out.
+#fps = 60
+#spin_duration = 4.0          # seconds of the spin animation
+#result_hold = 3.0            # seconds the winner card stays highlighted
+#title = "Twitch Ban Roulette"
+#highlight = { enabled = true, color = [255, 255, 255], thickness = 3, radius = 8 }
+#background = { type = "chroma" }    # or { type = "color", color = [20, 20, 30] }
+                                     # or { type = "image", image = "assets/bg.png" }
+
+[roulette]
+# How many random cards scroll past before the winner lands.
+#lead_cards = [20, 30]
 
 # Each outcome is a card + weight + action.
 # Weights are relative, they don't have to sum to 100:
 # 40/5/55 gives the same odds as 4/0.5/5.5 or 80/10/110.
+# In "message" text, {user} is replaced with the viewer's name.
 
 [outcomes.Timeout]
 image = "assets/cards/timeout.png"
@@ -39,5 +54,20 @@ action = { type = "ban" }
 
 [outcomes.Nothing]
 image = "assets/cards/message.png"
-weight = 55
-action = { type = "message", text = "Wow, absolutely nothing" }
+weight = 45
+action = { type = "message", text = "{user}, wow, absolutely nothing" }
+
+[outcomes.Reroll]
+image = "assets/cards/reroll.png"
+weight = 5
+action = { type = "reroll" }
+
+[outcomes.Poll]
+image = "assets/cards/poll.png"
+weight = 3
+action = { type = "poll", title = "What next?", choices = ["Chill", "Chaos"], duration = 60 }
+
+[outcomes.Vip]
+image = "assets/cards/vip.png"
+weight = 2
+action = { type = "vip_add" }
