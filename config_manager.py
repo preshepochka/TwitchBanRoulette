@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from config_schema import Config, ImageBackground
+from config_schema import Config, ImageBackground, SoundAction
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +47,21 @@ class ConfigManager:
         if isinstance(bg, ImageBackground) and not (base / bg.image).exists():
             log.error("window.background: image not found: %s", bg.image)
             ok = False
+        if cfg.sounds.enabled:
+            for key in ("spin", "tick", "result"):
+                p = getattr(cfg.sounds, key)
+                if p and not (base / p).exists():
+                    log.error("sounds.%s: file not found: %s", key, p)
+                    ok = False
+            for name, o in cfg.outcomes.items():
+                if o.sound and not (base / o.sound).exists():
+                    log.error("%s: sound not found: %s", name, o.sound)
+                    ok = False
+                if (isinstance(o.action, SoundAction)
+                        and not (base / o.action.sound).exists()):
+                    log.error("%s: action sound not found: %s",
+                              name, o.action.sound)
+                    ok = False
         return ok
 
     def load(self) -> Config:

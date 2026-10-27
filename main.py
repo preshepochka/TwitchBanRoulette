@@ -1,6 +1,7 @@
 import logging
 
 from app import App
+from audio import Audio
 from bot import Bot
 from config_manager import ConfigManager
 from renderer import Renderer
@@ -26,11 +27,13 @@ def main():
 
     twitch = cfg.twitch
     bot = Bot(twitch.client_id, twitch.token, twitch.channel, twitch.reward_id)
+    audio = Audio(manager.config_path.parent, cfg.sounds)
     renderer = Renderer(cfg.window, manager.card_paths(),
-                        manager.overlay_path(), manager.background_path())
+                        manager.overlay_path(), manager.background_path(),
+                        audio)
     roulette = Roulette(cfg.outcomes, cfg.window, cfg.roulette)
 
-    app = App(cfg, bot, roulette, renderer)
+    app = App(cfg, bot, roulette, renderer, audio)
     app.run()
 
 

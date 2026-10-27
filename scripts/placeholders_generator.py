@@ -1,6 +1,12 @@
-import pygame
+import math
+import struct
+import wave
 from pathlib import Path
+
+import pygame
+
 from config_manager import ConfigManager
+
 CARDS = {
     "timeout": (255, 140, 0),
     "ban":     (220, 0, 60),
@@ -8,6 +14,14 @@ CARDS = {
     "reroll":  (170, 0, 255),
     "poll":    (0, 200, 140),
     "vip":     (255, 210, 0),
+    "airhorn": (255, 0, 190),
+}
+
+SOUNDS = {
+    "spin":    (441, 0.10),
+    "tick":    (880, 0.03),
+    "result":  (660, 0.35),
+    "airhorn": (330, 0.40),
 }
 
 
@@ -17,6 +31,24 @@ def make_card(path: Path, color: tuple) -> None:
     pygame.draw.rect(surf, (255, 255, 255), surf.get_rect(), 4)
     path.parent.mkdir(parents=True, exist_ok=True)
     pygame.image.save(surf, str(path))
+
+
+def make_sound(path: Path, freq: int, seconds: float, volume: float = 0.4) -> None:
+    rate = 44100
+    n = int(rate * seconds)
+    if rate % freq == 0:
+        period = rate // freq
+        n = max(period, n // period * period)
+    frames = b"".join(
+        struct.pack("<h", int(volume * 32767 * math.sin(2 * math.pi * freq * i / rate)))
+        for i in range(n)
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(rate)
+        f.writeframes(frames)
 
 
 def make_overlay(path: Path, w: int, h: int) -> None:
@@ -32,6 +64,8 @@ if __name__ == "__main__":
     pygame.init()
     for name, color in CARDS.items():
         make_card(Path(f"assets/cards/{name}.png"), color)
+    for name, (freq, secs) in SOUNDS.items():
+        make_sound(Path(f"assets/sounds/{name}.wav"), freq, secs)
     cfg = ConfigManager("config.toml").load()
     make_overlay(Path("assets/overlay.png"), cfg.window.width, cfg.window.height)
     print("Placeholders created")

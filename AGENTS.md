@@ -9,12 +9,12 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
 - Flat top-level Python modules (no package, no pyproject). Deps: `pydantic`, `pygame`, `requests` (`requirements.txt`); Python 3.11+. Use a venv. Python 3.14 quirk: official `pygame` has no cp314 wheels — a source build can end up without PNG support (`File is not a Windows BMP file` on image load); use `pygame-ce` there.
 - Run/verify everything from the repo root. Asset paths from config resolve relative to the config file's directory (`ConfigManager`).
 - `config.toml` is gitignored — copy `config.example.toml` before anything can run.
-- Module roles: `bot.py` = pure Twitch transport (Helix requests, poll thread, queue) and raises `TwitchError`; `outcomes.py` = action models' runtime (`apply(bot, action, user_id, user_name)`, `{user}` substitution); `config_schema.py` = all pydantic models incl. discriminated unions `Action` and `Background`; `roulette.py` = winner selection; `renderer.py` = pygame window; `app.py` handles `reroll` control flow (`MAX_REROLL_CHAIN`); `main.py` = the only wiring point.
+- Module roles: `bot.py` = pure Twitch transport (Helix requests, poll thread, queue) and raises `TwitchError`; `outcomes.py` = action models' runtime (`apply(bot, action, user_id, user_name)`, `{user}` substitution); `audio.py` = `pygame.mixer` wrapper (`Audio`), plays by path with a cache and degrades to no-ops without an audio device; `config_schema.py` = all pydantic models incl. discriminated unions `Action` and `Background`; `roulette.py` = winner selection; `renderer.py` = pygame window + spin/tick sounds; `app.py` = result sounds (priority: action sound → outcome `sound` → `sounds.result`) and `reroll` control flow (`MAX_REROLL_CHAIN`); `main.py` = the only wiring point.
 
 ## Verification
 
 - **No test framework, lint, typecheck, or CI.** `scripts/` contains standalone manual scripts, run individually from repo root with `PYTHONPATH=.`:
-  - `PYTHONPATH=. python3 scripts/demo.py` — full pipeline with no config and no Twitch: config built in code, FakeBot auto-redemptions + Space for manual spins.
+  - `PYTHONPATH=. python3 scripts/demo.py` — full pipeline with no config and no Twitch: config built in code, FakeBot auto-redemptions + Space for manual spins, placeholder sounds included. For fully headless runs (no display/audio device): `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`.
   - `PYTHONPATH=. python3 scripts/test_app.py` — full pipeline against `FakeBot` using the real `config.toml` (auto-redemptions, no Twitch traffic, opens a window).
   - `PYTHONPATH=. python3 scripts/test_renderer.py` — renderer only; Space triggers a spin.
   - `scripts/fake_bot.py` — bot stub; `scripts/list_rewards.py` — prints channel-points reward IDs (to fill `twitch.reward_id`, needs real credentials); `scripts/placeholders_generator.py` — regenerates placeholder assets.
@@ -28,6 +28,7 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
 - `action` is a nested table discriminated by `type` (`timeout` needs `duration` > 0 in seconds, `message` needs `text` supporting `{user}`, `poll` needs `title` + 2–5 `choices` and `duration` 15–300, `ban`/`nothing`/`reroll`/`vip_add`/`vip_remove` need nothing) — pydantic rejects wrong shapes at load time.
 - Weights are relative and don't need to sum to 100 (`weight: float > 0`, no sum validator).
 - `window.background` is a discriminated union: `chroma` (default), `color`, `image` (stretched over the window); with `image`, OBS should capture the window directly, no chroma keying.
+- `[sounds]` is optional; WAV/OGG only (MP3 flaky through SDL_mixer). Sound files are existence-checked by `ConfigManager.validate()` only while `sounds.enabled` is true. `sounds.spin` loops (Renderer owns its channel), `sounds.result` is the fallback for outcome reveal.
 - `chroma_key` RGB is the OBS key color: it must not appear in card art or the overlay; `window.overlay` is an alpha PNG sized to the window.
 - Outcome card images, overlay and background image are checked for existence by `ConfigManager.validate()`.
 

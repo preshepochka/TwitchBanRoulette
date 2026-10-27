@@ -2,6 +2,7 @@ import random
 from enum import Enum, auto
 from pathlib import Path
 import pygame
+from audio import Audio
 from config_schema import (ColorBackground, HighlightStyle, ImageBackground,
                            WindowConfig)
 
@@ -20,7 +21,8 @@ class RenderEvent(Enum):
 class Renderer:
     def __init__(self, window_cfg: WindowConfig, card_paths: list[Path],
                  overlay_path: Path | None = None,
-                 background_path: Path | None = None):
+                 background_path: Path | None = None,
+                 audio: Audio | None = None):
         pygame.init()
         self.width = window_cfg.width
         self.height = window_cfg.height
@@ -34,6 +36,7 @@ class Renderer:
         self.fps = window_cfg.fps
         self.spin_duration_ms = int(window_cfg.spin_duration * 1000)
         self.result_hold_ms = int(window_cfg.result_hold * 1000)
+        self.audio = audio
 
         self.clock = pygame.time.Clock()
         self.state = RenderState.IDLE
@@ -45,6 +48,7 @@ class Renderer:
         self.spin_start_ms = 0
         self.scroll_to = 0.0
         self.result_start_ms = 0
+        self._last_card_under = 0
 
         self._debug_spin = False
 
@@ -92,6 +96,9 @@ class Renderer:
                           + self.card_w / 2
                           - self.width / 2
                           + jitter)
+        self._last_card_under = int((self.width / 2) // stride)
+        if self.audio is not None:
+            self.audio.play_loop(self.audio.sounds.spin)
         self.state = RenderState.SPINNING
 
     def poll_events(self) -> bool:
@@ -111,9 +118,13 @@ class Renderer:
         frame_event = None
 
         if self.state is RenderState.SPINNING:
-            self._draw_strip(self._current_scroll())
+            scroll = self._current_scroll()
+            self._tick_check(scroll)
+            self._draw_strip(scroll)
             self._draw_overlay()
             if self._spin_finished():
+                if self.audio is not None:
+                    self.audio.stop_loop()
                 self.state = RenderState.RESULT
                 self.result_start_ms = pygame.time.get_ticks()
                 frame_event = RenderEvent.SPIN_FINISHED
@@ -143,6 +154,15 @@ class Renderer:
         t = min(t, 1.0)
         eased = 1 - (1 - t) ** 3
         return self.scroll_to * eased
+
+    def _tick_check(self, scroll: float) -> None:
+        if self.audio is None or self.audio.sounds.tick is None:
+            return
+        stride = self.card_w + self.gap
+        card_under = int((scroll + self.width / 2) // stride)
+        if card_under != self._last_card_under:
+            self._last_card_under = card_under
+            self.audio.play(self.audio.sounds.tick)
 
     def _spin_finished(self) -> bool:
         return (pygame.time.get_ticks() - self.spin_start_ms) >= self.spin_duration_ms

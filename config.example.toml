@@ -37,6 +37,15 @@ overlay = "assets/overlay.png"
 # How many random cards scroll past before the winner lands.
 #lead_cards = [20, 30]
 
+# Optional sounds. Formats: WAV or OGG (avoid MP3).
+# With sounds disabled (or the section removed) the app stays fully silent.
+[sounds]
+#enabled = true
+#volume = 1.0                        # master volume 0..1
+#spin = "assets/sounds/spin.wav"     # loops during the spin
+#tick = "assets/sounds/tick.wav"     # click when a card passes the pointer
+#result = "assets/sounds/result.wav" # played when an outcome has no own sound
+
 # Each outcome is a card + weight + action.
 # Weights are relative, they don't have to sum to 100:
 # 40/5/55 gives the same odds as 4/0.5/5.5 or 80/10/110.
@@ -45,6 +54,8 @@ overlay = "assets/overlay.png"
 [outcomes.Timeout]
 image = "assets/cards/timeout.png"
 weight = 40
+#sound = "assets/sounds/timeout.wav"  # optional: replaces sounds.result for this card
+#sound_volume = 1.0                   # 0..1
 action = { type = "timeout", duration = 60 }  # duration: seconds
 
 [outcomes.Ban]
@@ -71,3 +82,8 @@ action = { type = "poll", title = "What next?", choices = ["Chill", "Chaos"], du
 image = "assets/cards/vip.png"
 weight = 2
 action = { type = "vip_add" }
+
+[outcomes.Airhorn]
+image = "assets/cards/airhorn.png"
+weight = 5
+action = { type = "sound", sound = "assets/sounds/airhorn.wav", volume = 1.0 }

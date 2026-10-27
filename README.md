@@ -125,6 +125,20 @@ The whole section is optional — omit it to test locally with `scripts/demo.py`
 
 - `lead_cards = [20, 30]` — how many random cards scroll past before the winner lands (default `[20, 30]`).
 
+### `sounds`
+
+The whole section is optional; without it the app is silent. Formats: **WAV** or **OGG** (avoid MP3).
+
+- `enabled` — default `true`; with `false` the app stays silent even with sounds configured.
+- `volume` — master volume, `0.0..1.0`, default `1.0`.
+- `spin` — played in a loop for the whole spin, stopped when the result is shown.
+- `tick` — a click every time a card passes the pointer during the spin.
+- `result` — played when the winner is revealed, unless the outcome has its own `sound`.
+
+Per-outcome sound: add `sound = "assets/sounds/sting.ogg"` (and optional `sound_volume`) to any outcome — it replaces `sounds.result` for that card.
+
+Priority when the winner is revealed: action sound (`type = "sound"`) → outcome `sound` → `sounds.result`.
+
 ### `outcomes`
 
 Each section is one outcome: a card, its weight and the action:
@@ -139,6 +153,7 @@ Each section is one outcome: a card, its weight and the action:
   - `{ type = "reroll" }` — spin again for the same viewer (chain is capped at 8, then the redemption is fulfilled with no effect).
   - `{ type = "poll", title = "...", choices = ["A", "B"], duration = 60 }` — create a Twitch poll (2–5 choices, `duration` 15–300 s; needs the `channel:manage:polls` scope).
   - `{ type = "vip_add" }` / `{ type = "vip_remove" }` — grant/revoke VIP for the viewer (needs the `moderator:manage:vips` scope).
+  - `{ type = "sound", sound = "...", volume = 1.0 }` — play a sound and do nothing else; the card itself is the show.
 
 All paths are relative to the config file's directory.
 
@@ -151,6 +166,8 @@ All paths are relative to the config file's directory.
 5. Adjust Similarity empirically (usually 400–600).
 
 **Don't minimize the window** — move it behind other windows or to a second monitor. OBS will capture it anyway, and minimized windows on some systems stop rendering frames.
+
+Sounds are played by the window itself — OBS window capture does **not** carry audio. Add your system/desktop audio as a separate OBS source if you want the sounds on stream.
 
 ## Running
 

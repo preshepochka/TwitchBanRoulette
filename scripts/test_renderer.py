@@ -1,3 +1,4 @@
+from audio import Audio
 from config_manager import ConfigManager
 from renderer import Renderer, RenderEvent
 from roulette import Roulette
@@ -9,8 +10,10 @@ def main() -> None:
         raise SystemExit("Invalid config")
     cfg = manager.load()
 
+    audio = Audio(manager.config_path.parent, cfg.sounds)
     renderer = Renderer(cfg.window, manager.card_paths(),
-                        manager.overlay_path(), manager.background_path())
+                        manager.overlay_path(), manager.background_path(),
+                        audio)
     roulette = Roulette(cfg.outcomes, cfg.window, cfg.roulette)
     print("Window started. Space — roll.")
 

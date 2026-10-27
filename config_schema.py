@@ -83,6 +83,14 @@ class RouletteConfig(StrictModel):
         return self
 
 
+class SoundConfig(StrictModel):
+    enabled: bool = True
+    volume: float = Field(default=1.0, ge=0, le=1)
+    spin: str | None = None
+    tick: str | None = None
+    result: str | None = None
+
+
 class TimeoutAction(StrictModel):
     type: Literal["timeout"] = "timeout"
     duration: int = Field(gt=0)
@@ -120,9 +128,16 @@ class VipRemoveAction(StrictModel):
     type: Literal["vip_remove"] = "vip_remove"
 
 
+class SoundAction(StrictModel):
+    type: Literal["sound"] = "sound"
+    sound: str
+    volume: float = Field(default=1.0, ge=0, le=1)
+
+
 Action = Annotated[
     Union[TimeoutAction, BanAction, MessageAction, NothingAction,
-          RerollAction, PollAction, VipAddAction, VipRemoveAction],
+          RerollAction, PollAction, VipAddAction, VipRemoveAction,
+          SoundAction],
     Field(discriminator="type"),
 ]
 
@@ -130,6 +145,8 @@ Action = Annotated[
 class Outcome(StrictModel):
     image: str
     weight: float = Field(gt=0)
+    sound: str | None = None
+    sound_volume: float = Field(default=1.0, ge=0, le=1)
     action: Action
 
 
@@ -137,4 +154,5 @@ class Config(StrictModel):
     twitch: TwitchConfig | None = None
     window: WindowConfig
     roulette: RouletteConfig = Field(default_factory=RouletteConfig)
+    sounds: SoundConfig = Field(default_factory=SoundConfig)
     outcomes: dict[str, Outcome]

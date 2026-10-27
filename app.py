@@ -2,7 +2,7 @@ import logging
 from queue import Empty
 
 from bot import TwitchError
-from config_schema import RerollAction
+from config_schema import RerollAction, SoundAction
 from outcomes import apply
 from renderer import RenderEvent, RenderState
 
@@ -12,12 +12,13 @@ MAX_REROLL_CHAIN = 8
 
 
 class App:
-    def __init__(self, config, bot, roulette, renderer):
+    def __init__(self, config, bot, roulette, renderer, audio):
         self.bot = bot
         self.roulette = roulette
         self.renderer = renderer
+        self.audio = audio
         self.outcomes = config.outcomes
-        self._current = None
+        self._current: tuple | None = None
 
     def run(self):
         self.bot.start()
@@ -48,22 +49,34 @@ class App:
         self._current = (redemption, plan, rerolls)
 
     def _apply_consequence(self):
+        if self._current is None:
+            return
         redemption, plan, rerolls = self._current
         outcome = self.outcomes[plan.winner_name]
+        action = outcome.action
 
-        if isinstance(outcome.action, RerollAction) and rerolls < MAX_REROLL_CHAIN:
+        if isinstance(action, RerollAction) and rerolls < MAX_REROLL_CHAIN:
+            self.audio.play(outcome.sound, outcome.sound_volume)
             log.info("%s -> %s (reroll #%d)", redemption["user_name"],
                      plan.winner_name, rerolls + 1)
             self._start_spin(redemption, rerolls + 1)
             return
 
-        ok = apply(self.bot, outcome.action, redemption["user_id"],
-                   redemption["user_name"])
+        if isinstance(action, SoundAction):
+            ok = True
+            sound_path, sound_volume = action.sound, action.volume
+        else:
+            ok = apply(self.bot, action, redemption["user_id"],
+                       redemption["user_name"])
+            sound_path = outcome.sound or self.audio.sounds.result
+            sound_volume = outcome.sound_volume
+
         if ok:
             try:
                 self.bot.fulfill_redemption(redemption["id"])
             except TwitchError as e:
                 log.error("fulfill failed for %s: %s", redemption["id"], e)
+        self.audio.play(sound_path, sound_volume)
         log.info("%s -> %s (%s)", redemption["user_name"], plan.winner_name,
-                 outcome.action.type)
+                 action.type)
         self._current = None

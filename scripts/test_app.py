@@ -1,6 +1,7 @@
 import logging
 
 from app import App
+from audio import Audio
 from config_manager import ConfigManager
 from fake_bot import FakeBot
 from renderer import Renderer
@@ -17,10 +18,12 @@ def main():
         raise SystemExit("invalid config")
     cfg = manager.load()
 
+    audio = Audio(manager.config_path.parent, cfg.sounds)
     renderer = Renderer(cfg.window, manager.card_paths(),
-                        manager.overlay_path(), manager.background_path())
+                        manager.overlay_path(), manager.background_path(),
+                        audio)
     roulette = Roulette(cfg.outcomes, cfg.window, cfg.roulette)
-    app = App(cfg, FakeBot(every=6.0), roulette, renderer)
+    app = App(cfg, FakeBot(every=6.0), roulette, renderer, audio)
     app.run()
 
 
