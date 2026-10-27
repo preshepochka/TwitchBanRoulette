@@ -1,7 +1,11 @@
 import random
+import sys
 import threading
 import time
+from pathlib import Path
 from queue import Queue
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from bot import TwitchError
 

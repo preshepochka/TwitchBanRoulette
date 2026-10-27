@@ -13,13 +13,13 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
 
 ## Verification
 
-- **No test framework, lint, typecheck, or CI.** `scripts/` contains standalone manual scripts, run individually from repo root with `PYTHONPATH=.`:
-  - `PYTHONPATH=. python3 scripts/demo.py` — full pipeline with no config and no Twitch: config built in code, FakeBot auto-redemptions + Space for manual spins, placeholder sounds included. For fully headless runs (no display/audio device): `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`.
-  - `PYTHONPATH=. python3 scripts/test_app.py` — full pipeline against `FakeBot` using the real `config.toml` (auto-redemptions, no Twitch traffic, opens a window).
-  - `PYTHONPATH=. python3 scripts/test_renderer.py` — renderer only; Space triggers a spin.
+- **No test framework, lint, typecheck, or CI.** `scripts/` contains standalone manual scripts, run individually from repo root (each script bootstraps `sys.path` itself — no `PYTHONPATH` needed; `python3 scripts/....py` on Linux/mac, `py scripts/....py` on Windows):
+  - `python3 scripts/demo.py` — full pipeline with no config and no Twitch: config built in code, FakeBot auto-redemptions + Space for manual spins, placeholder sounds included. For fully headless runs (no display/audio device): `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`.
+  - `python3 scripts/test_app.py` — full pipeline against `FakeBot` using the real `config.toml` (auto-redemptions, no Twitch traffic, opens a window).
+  - `python3 scripts/test_renderer.py` — renderer only; Space triggers a spin.
   - `scripts/fake_bot.py` — bot stub; `scripts/list_rewards.py` — prints channel-points reward IDs (to fill `twitch.reward_id`, needs real credentials); `scripts/placeholders_generator.py` — regenerates placeholder assets.
 - Quick static check with no setup: `python3 -m compileall -q .`
-- `scripts/test_app.py` is the reference for how `App`/`Roulette`/`Renderer` connect; `main.py` shows the real wiring with `Bot`.
+- `scripts/test_app.py` is the reference for how `App`/`Roulette`/`Renderer` connect; `main.py` shows the real wiring with `Bot`. `main.py` logs a startup banner (python/pygame versions) and pauses on fatal errors so double-clicked Windows launches stay readable.
 
 ## Config gotchas
 

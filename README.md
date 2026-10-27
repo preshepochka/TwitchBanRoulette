@@ -19,6 +19,8 @@ Outcomes are fully yours to define: you decide how many there are, what each car
 - `pip`
 - OBS (or any other window-capture software) if you want the roulette on stream
 
+On Windows, use the `py` launcher or `python` — the `python3` command often doesn't exist there, and a bare `python` may be a Microsoft Store stub that silently does nothing (Settings → Apps → Advanced app settings → App execution aliases → turn off *python.exe* / *python3.exe*). Run the program from an open terminal, not by double-clicking — errors stay visible, and a fatal error now waits for Enter before closing anyway.
+
 ## Quick start
 
 ```bash
@@ -38,7 +40,7 @@ pip install -r requirements.txt
 Then try it with **zero configuration and zero Twitch credentials**:
 
 ```bash
-PYTHONPATH=. python3 scripts/demo.py
+python scripts/demo.py        # Windows: py scripts/demo.py
 ```
 
 A window opens and spins automatically every ~5 seconds. Press **Space** for a manual spin. The demo uses placeholder cards, sounds and a fake Twitch bot — nothing leaves your computer.
@@ -76,7 +78,7 @@ Twitch never shows the reward's UUID anywhere in the UI. Get it with a helper sc
 3. Run:
 
    ```bash
-   python3 scripts/list_rewards.py
+   python scripts/list_rewards.py    # Windows: py scripts/list_rewards.py
    ```
 
 4. You'll see lines like `123e4567-...  My reward`.
@@ -271,7 +273,7 @@ How it works and what to keep in mind:
 
 ## Assets: what works best
 
-Everything lives under `assets/`. Placeholder art and sounds are included, so the app works out of the box — replace them when you're ready. You can regenerate the placeholders any time with `python3 scripts/placeholders_generator.py`.
+Everything lives under `assets/`. Placeholder art and sounds are included, so the app works out of the box — replace them when you're ready. You can regenerate the placeholders any time with `python scripts/placeholders_generator.py`.
 
 **Cards** (`assets/cards/*.png`)
 
@@ -330,12 +332,19 @@ python main.py
 The no-Twitch demo — auto-redemptions every ~5 s, **Space** for a manual spin:
 
 ```bash
-PYTHONPATH=. python3 scripts/demo.py
+python scripts/demo.py        # Windows: py scripts/demo.py
 ```
 
 Console output shows every redemption and action, so you can follow the bot's decisions live. If the config or assets have problems, the program tells you exactly what it didn't like and exits.
 
 ## Troubleshooting
+
+**Nothing happens at all — no window, no errors.** Run from an open terminal (`cmd`/`PowerShell`), not by double-clicking, and check in order:
+
+1. `python --version` (or `py --version` on Windows) prints 3.11+ — if nothing prints or the Microsoft Store opens, you're hitting the Store alias stub; disable it (Settings → Apps → Advanced app settings → **App execution aliases**) and use `py`.
+2. The very first log line `starting TwitchBanRoulette (python ..., pygame ...)` appears — if it does, Python and imports are fine, the problem is in config/assets; read the lines after it. If it doesn't, the interpreter or dependencies are broken: `pip install -r requirements.txt` in the same interpreter you run with.
+3. `config.toml` exists in the project root (copy from `config.example.toml`) — without it the program logs where it looked and exits.
+4. On a fatal error the console now waits for **Enter** before closing, so double-clicked launches stay readable.
 
 **`pygame.error: File is not a Windows BMP file`** on startup — your pygame build has no PNG support. This happens when pip has to compile pygame from source (typically on very new Python versions). Fix it with one of:
 
