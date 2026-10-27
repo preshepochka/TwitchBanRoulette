@@ -1,3 +1,4 @@
+import argparse
 import logging
 import sys
 
@@ -7,7 +8,9 @@ from app import App
 from audio import Audio
 from bot import Bot
 from config_manager import ConfigManager
-from config_schema import Config, LoggingConfig
+from config_schema import LoggingConfig
+from modes import (config_path, generate_placeholders, list_rewards,
+                   run_app_test, run_demo, run_renderer_test)
 from renderer import Renderer
 from roulette import Roulette
 
@@ -38,12 +41,31 @@ def _apply_logging_config(manager: ConfigManager, lc: LoggingConfig) -> None:
         root.addHandler(handler)
 
 
-def main():
-    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-    log.info("starting TwitchBanRoulette (python %s, pygame %s)",
-             sys.version.split()[0], pygame.version.ver)
+def _parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="TwitchBanRoulette",
+        description="Channel-points roulette for Twitch streams.")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--demo", action="store_true",
+                       help="demo mode: fake bot, no config or Twitch needed")
+    modes.add_argument("--renderer", action="store_true",
+                       help="window only: Space spins, outcomes from config")
+    modes.add_argument("--test", action="store_true",
+                       help="full pipeline with the fake bot on config.toml")
+    modes.add_argument("--placeholders", action="store_true",
+                       help="(re)create placeholder assets")
+    modes.add_argument("--list-rewards", action="store_true",
+                       help="print channel-points reward IDs")
+    parser.add_argument("--force", action="store_true",
+                        help="with --placeholders: overwrite existing files")
+    args = parser.parse_args(argv)
+    if args.force and not args.placeholders:
+        parser.error("--force is only used together with --placeholders")
+    return args
 
-    manager = ConfigManager("config.toml")
+
+def _run_bot() -> None:
+    manager = ConfigManager(str(config_path()))
     if not manager.validate():
         raise SystemExit(1)
     cfg = manager.load()
@@ -51,9 +73,8 @@ def main():
     _apply_logging_config(manager, cfg.logging)
 
     if cfg.twitch is None:
-        logging.getLogger(__name__).error(
-            "[twitch] section is required to run the real bot; "
-            "for local testing use scripts/demo.py")
+        log.error("[twitch] section is required to run the real bot; "
+                  "for local testing use --demo")
         raise SystemExit(1)
 
     twitch = cfg.twitch
@@ -66,6 +87,27 @@ def main():
 
     app = App(cfg, bot, roulette, renderer, audio)
     app.run()
+
+
+def main(argv=None):
+    args = _parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+    log.info("starting TwitchBanRoulette (python %s, pygame %s%s)",
+             sys.version.split()[0], pygame.version.ver,
+             ", portable build" if getattr(sys, "frozen", False) else "")
+
+    if args.demo:
+        run_demo()
+    elif args.renderer:
+        run_renderer_test()
+    elif args.test:
+        run_app_test()
+    elif args.placeholders:
+        generate_placeholders(force=args.force)
+    elif args.list_rewards:
+        list_rewards()
+    else:
+        _run_bot()
 
 
 if __name__ == "__main__":

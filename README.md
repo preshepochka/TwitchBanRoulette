@@ -47,6 +47,26 @@ A window opens and spins automatically every ~5 seconds. Press **Space** for a m
 
 Once you've seen it work, continue with the [Twitch setup](#twitch-setup) below.
 
+## Download & run (Windows)
+
+No Python at all is needed if you grab the prebuilt exe: open [Releases](https://github.com/preshepochka/TwitchBanRoulette/releases), download `TwitchBanRoulette-windows.zip` from the latest release, unzip it anywhere and edit `config.toml` next to the exe. Then just run `TwitchBanRoulette.exe`.
+
+- Windows may show a **SmartScreen** warning for the unsigned exe — *More info* → *Run anyway*.
+- The black console window that appears **is the log** (redemptions, results, errors) — keep it open, close it only when done.
+- All debug modes work from the exe too:
+
+| Command | What it does |
+|---|---|
+| `TwitchBanRoulette.exe` | The real bot (needs `[twitch]` in config.toml) |
+| `TwitchBanRoulette.exe --demo` | Demo: fake bot, no config/Twitch needed |
+| `TwitchBanRoulette.exe --renderer` | Window only: **Space** spins — check how new card art looks |
+| `TwitchBanRoulette.exe --test` | Full pipeline with the fake bot on your config.toml |
+| `TwitchBanRoulette.exe --placeholders` | Create placeholder assets (existing files are kept) |
+| `TwitchBanRoulette.exe --placeholders --force` | Regenerate all placeholder assets, overwriting |
+| `TwitchBanRoulette.exe --list-rewards` | Print channel-points reward IDs (needs credentials) |
+
+The same flags work with the sources: `python main.py --demo`, `python main.py --renderer`, and so on. The individual `scripts/*.py` entry points are kept as thin wrappers for convenience.
+
 ## Twitch setup
 
 Two things are needed from Twitch: an OAuth token and the reward ID. Register your application first:
@@ -329,7 +349,7 @@ The real bot (needs the `[twitch]` section):
 python main.py
 ```
 
-The no-Twitch demo — auto-redemptions every ~5 s, **Space** for a manual spin:
+The no-Twitch demo — auto-redemptions every ~5 s, **Space** for a manual spin (see the [flag table](#download--run-windows) above for more debug modes):
 
 ```bash
 python scripts/demo.py        # Windows: py scripts/demo.py
@@ -376,10 +396,12 @@ outcomes.py         applying outcome actions (timeout/ban/message/...)
 roulette.py         winner selection, spin plan
 renderer.py         pygame window, animation, spin/tick sounds
 audio.py            sound playback (mixer wrapper)
+modes.py            debug modes (--demo/--renderer/--test/--placeholders/--list-rewards)
 config_manager.py   config.toml loading and validation
 config_schema.py    config schema (pydantic)
+fake_bot.py         fake bot double used by the debug modes
 assets/             cards, overlay, sounds
-scripts/            helper scripts: demo, reward list, placeholders (not a test suite)
+scripts/            thin wrappers over the debug modes (not a test suite)
 ```
 
 ## License

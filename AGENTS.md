@@ -2,29 +2,35 @@
 
 ## What this is
 
-Local desktop app for streamers: viewers redeem a Twitch channel-points reward, a pygame window (captured in OBS via chroma key) spins a strip of outcome cards, and the bot applies the winning outcome (timeout/ban/message) to that viewer. No web server, no packaging.
+Local desktop app for streamers: viewers redeem a Twitch channel-points reward, a pygame window (captured in OBS via chroma key) spins a strip of outcome cards, and the bot applies the winning outcome (timeout/ban/message) to that viewer. No web server; a Windows exe is built by CI (see Release).
 
 ## Layout & run model
 
 - Flat top-level Python modules (no package, no pyproject). Deps: `pydantic`, `pygame`, `requests` (`requirements.txt`); Python 3.11+. Use a venv. Python 3.14 quirk: official `pygame` has no cp314 wheels — a source build can end up without PNG support (`File is not a Windows BMP file` on image load); use `pygame-ce` there.
 - Run/verify everything from the repo root. Asset paths from config resolve relative to the config file's directory (`ConfigManager`).
 - `config.toml` is gitignored — copy `config.example.toml` before anything can run.
-- Module roles: `bot.py` = pure Twitch transport (Helix requests, poll thread, queue) and raises `TwitchError`; `outcomes.py` = bot-facing action runtime (`apply(bot, action, user_id, user_name)`, `{user}` substitution); `audio.py` = `pygame.mixer` wrapper (`Audio`), plays by path with a cache and degrades to no-ops without an audio device; `config_schema.py` = all pydantic models incl. discriminated unions `Action` and `Background` (poll `on_win` maps choice titles to `SimpleAction`s); `roulette.py` = winner selection; `renderer.py` = pygame window + spin/tick sounds; `app.py` = result sounds (priority: action sound → outcome `sound` → `sounds.result`), `reroll` control flow (`MAX_REROLL_CHAIN`) and pending-poll resolution (`PollAction` + `on_win`, checked after `duration`, retries capped); `main.py` = the only wiring point.
+- Module roles: `bot.py` = pure Twitch transport (Helix requests, poll thread, queue) and raises `TwitchError`; `outcomes.py` = bot-facing action runtime (`apply(bot, action, user_id, user_name)`, `{user}` substitution); `audio.py` = `pygame.mixer` wrapper (`Audio`), plays by path with a cache and degrades to no-ops without an audio device; `config_schema.py` = all pydantic models incl. discriminated unions `Action` and `Background` (poll `on_win` maps choice titles to `SimpleAction`s); `roulette.py` = winner selection; `renderer.py` = pygame window + spin/tick sounds; `app.py` = result sounds (priority: action sound → outcome `sound` → `sounds.result`), `reroll` control flow (`MAX_REROLL_CHAIN`) and pending-poll resolution (`PollAction` + `on_win`, checked after `duration`, retries capped); `modes.py` = debug modes (`run_demo`, `run_renderer_test`, `run_app_test`, `generate_placeholders(force)`, `list_rewards`) shared by the `main.py` CLI flags and the `scripts/` wrappers, `app_root()` = exe dir when frozen else repo root; `main.py` = argparse dispatch (no flags = real bot) and the only wiring point.
 
 ## Verification
 
-- **No test framework, lint, typecheck, or CI.** `scripts/` contains standalone manual scripts, run individually from repo root (each script bootstraps `sys.path` itself — no `PYTHONPATH` needed; `python3 scripts/....py` on Linux/mac, `py scripts/....py` on Windows):
-  - `python3 scripts/demo.py` — full pipeline with no config and no Twitch: config built in code, FakeBot auto-redemptions + Space for manual spins, placeholder sounds included. For fully headless runs (no display/audio device): `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`.
-  - `python3 scripts/test_app.py` — full pipeline against `FakeBot` using the real `config.toml` (auto-redemptions, no Twitch traffic, opens a window).
-  - `python3 scripts/test_renderer.py` — renderer only; Space triggers a spin.
-  - `scripts/fake_bot.py` — bot stub; `scripts/list_rewards.py` — prints channel-points reward IDs (to fill `twitch.reward_id`, needs real credentials); `scripts/placeholders_generator.py` — regenerates placeholder assets.
+- **No test framework, lint, typecheck, or CI.** Debug modes live in `modes.py`, exposed both as `main.py` CLI flags and as thin wrappers in `scripts/`; run individually from repo root (each script bootstraps `sys.path` itself — no `PYTHONPATH` needed; `python3 scripts/....py` on Linux/mac, `py scripts/....py` on Windows):
+  - `python3 scripts/demo.py` (or `main.py --demo`) — full pipeline with no config and no Twitch: config built in code, FakeBot auto-redemptions + Space for manual spins, placeholder sounds included. For fully headless runs (no display/audio device): `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`.
+  - `python3 scripts/test_app.py` (or `main.py --test`) — full pipeline against `FakeBot` using the real `config.toml` (auto-redemptions, no Twitch traffic, opens a window).
+  - `python3 scripts/test_renderer.py` (or `main.py --renderer`) — renderer only; Space triggers a spin.
+  - `main.py --placeholders [--force]` — regenerate placeholder assets next to the app root; existing files are kept without `--force`.
+  - `main.py --list-rewards` — prints channel-points reward IDs (to fill `twitch.reward_id`, needs real credentials); `fake_bot.py` — the bot stub the modes use.
 - Quick static check with no setup: `python3 -m compileall -q .`
 - `scripts/test_app.py` is the reference for how `App`/`Roulette`/`Renderer` connect; `main.py` shows the real wiring with `Bot`. `main.py` logs a startup banner (python/pygame versions) and pauses on fatal errors so double-clicked Windows launches stay readable.
+
+## Release
+
+- Windows exe is built **only on GitHub Actions** (`.github/workflows/release.yml`, `windows-latest`): a push of a `v*` tag (or a manual `workflow_dispatch`) builds PyInstaller onefile, smoke-tests it (config error exit + `--placeholders --force` writing assets), zips exe + `assets/` + `config.example.toml` + READMEs and attaches it to the Release. Do not try to build exe locally — PyInstaller does not cross-compile, and Wine on aarch64 is not viable.
+- Release zip layout: `TwitchBanRoulette.exe`, `assets/`, `config.example.toml`, `README.md`, `README.ru.md`. When frozen, `main.py` looks for `config.toml` next to the exe (`modes.app_root()`).
 
 ## Config gotchas
 
 - Schema is strict (`extra="forbid"`): unknown keys fail validation.
-- `[twitch]` is optional — omit it for local testing via `scripts/demo.py`; `main.py` refuses to run the real bot without it.
+- `[twitch]` is optional — omit it for local testing via `--demo`; `main.py` refuses to run the real bot without it.
 - `action` is a nested table discriminated by `type` (`timeout` needs `duration` > 0 in seconds, `message` needs `text` supporting `{user}`, `poll` needs `title` + 2–5 `choices` and `duration` 15–300 with optional per-choice `on_win` (keys must match choice titles; nested actions can't be `poll` — they use the `SimpleAction` union without it — and `reroll` is skipped with a warning at resolve time), `ban`/`nothing`/`reroll`/`vip_add`/`vip_remove`/`sound` shapes vary) — pydantic rejects wrong shapes at load time.
 - Weights are relative and don't need to sum to 100 (`weight: float > 0`, no sum validator).
 - `window.background` is a discriminated union: `chroma` (default), `color`, `image` (stretched over the window); with `image`, OBS should capture the window directly, no chroma keying.
