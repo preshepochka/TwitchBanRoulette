@@ -46,16 +46,24 @@ class Renderer:
         self._debug_spin = False
 
     def _load_assets(self, card_paths: list[Path], overlay_path: Path | None) -> None:
-        self.cards = []
-        for path in card_paths:
-            img = pygame.image.load(str(path)).convert_alpha()
-            img = pygame.transform.smoothscale(img, (self.card_w, self.card_h))
-            self.cards.append(img)
+        self.cards = [self._load_image(p, (self.card_w, self.card_h))
+                      for p in card_paths]
 
         self.overlay = None
         if overlay_path is not None:
-            img = pygame.image.load(str(overlay_path)).convert_alpha()
-            self.overlay = pygame.transform.smoothscale(img, (self.width, self.height))
+            self.overlay = self._load_image(overlay_path, (self.width, self.height))
+
+    @staticmethod
+    def _load_image(path: Path, size: tuple[int, int]) -> pygame.Surface:
+        try:
+            img = pygame.image.load(str(path)).convert_alpha()
+        except pygame.error as e:
+            raise RuntimeError(
+                f"cannot load image {path}: {e} "
+                f"(file may be corrupted, or this pygame build has no PNG support; "
+                f"try 'pip install pygame-ce' or Python 3.12/3.13)"
+            ) from e
+        return pygame.transform.smoothscale(img, size)
 
     def start_spin(self, sequence: list[int], winner_index: int, duration_s: float = 4.0) -> None:
         if self.state is not RenderState.IDLE:

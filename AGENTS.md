@@ -6,7 +6,7 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
 
 ## Layout & run model
 
-- Flat top-level Python modules (no package, no pyproject). Deps: `pydantic`, `pygame`, `requests` (`requirements.txt`); Python 3.11+ (config is TOML via stdlib `tomllib`). Use a venv.
+- Flat top-level Python modules (no package, no pyproject). Deps: `pydantic`, `pygame`, `requests` (`requirements.txt`); Python 3.11+. Use a venv. Python 3.14 quirk: official `pygame` has no cp314 wheels — a source build can end up without PNG support (`File is not a Windows BMP file` on image load); use `pygame-ce` there.
 - Run/verify everything from the repo root. Asset paths from config resolve relative to the config file's directory (`ConfigManager`).
 - `config.toml` is gitignored — copy `config.example.toml` before anything can run.
 - Module roles: `bot.py` = pure Twitch transport (Helix requests, poll thread, queue) and raises `TwitchError`; `outcomes.py` = action models' runtime (`apply(bot, action, user_id)`); `config_schema.py` = all pydantic models incl. the discriminated-union `Action`; `roulette.py` = winner selection; `renderer.py` = pygame window; `main.py` = the only wiring point.

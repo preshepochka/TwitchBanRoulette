@@ -13,7 +13,7 @@ Runs locally on the streamer's computer, no public IP required. The window is ca
 
 ## Requirements
 
-- Python 3.11 or newer (tested on 3.11–3.13)
+- Python 3.11 or newer (tested on 3.11–3.13; on 3.14 install `pygame-ce` instead of `pygame` — official pygame has no 3.14 builds yet)
 - pip
 - OBS (or similar window capture software)
 
@@ -137,6 +137,23 @@ All paths are relative to the config file's directory.
 # in activated venv
 python main.py
 ```
+
+## Troubleshooting
+
+**`pygame.error: File is not a Windows BMP file`** on startup — your pygame build has no PNG support. This happens when pip has to compile pygame from source (e.g. on very new Python versions). Fix with either:
+
+```bash
+pip uninstall pygame && pip install pygame-ce   # same API, ships new-Python builds
+```
+
+or use Python 3.12/3.13 (official pygame wheels exist there), or install the dev packages (`libsdl2-image-dev`, `libpng-dev`) and reinstall pygame. To confirm the diagnosis:
+
+```bash
+python -c "import pygame.image; print(pygame.image.get_extended(), pygame.image.get_sdl_image_version())"
+```
+
+`False` / `None` in the output means no image format support.
+
 ## Project Structure
 
 main.py                # entry point
