@@ -91,6 +91,11 @@ class SoundConfig(StrictModel):
     result: str | None = None
 
 
+class LoggingConfig(StrictModel):
+    level: Literal["debug", "info", "warning", "error"] = "info"
+    file: str | None = None
+
+
 class TimeoutAction(StrictModel):
     type: Literal["timeout"] = "timeout"
     duration: int = Field(gt=0)
@@ -155,4 +160,5 @@ class Config(StrictModel):
     window: WindowConfig
     roulette: RouletteConfig = Field(default_factory=RouletteConfig)
     sounds: SoundConfig = Field(default_factory=SoundConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
     outcomes: dict[str, Outcome]

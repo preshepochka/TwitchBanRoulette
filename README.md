@@ -187,6 +187,23 @@ action = { type = "timeout", duration = 60 }
 
 Priority when the winner is revealed: **action sound** (`type = "sound"`) → **outcome `sound`** → **`sounds.result`**.
 
+### `logging`
+
+The whole section is optional — by default the program logs to the console at `info` level.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `level` | `info` | Verbosity: `debug`, `info`, `warning` or `error` |
+| `file` | none | Also append the log to this file (path relative to the config file) |
+
+The log covers the useful trail: redemptions received, spin results with the chosen outcome, action and fulfill failures, poll/API errors. The file is appended, not replaced — clean it up or rename it occasionally if you run the bot for a long time.
+
+```toml
+[logging]
+level = "info"
+file = "roulette.log"
+```
+
 ### `outcomes`
 
 Each `[outcomes.Name]` section is one outcome: a card, its weight, an optional sound and an action.

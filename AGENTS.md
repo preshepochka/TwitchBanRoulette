@@ -29,6 +29,7 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
 - Weights are relative and don't need to sum to 100 (`weight: float > 0`, no sum validator).
 - `window.background` is a discriminated union: `chroma` (default), `color`, `image` (stretched over the window); with `image`, OBS should capture the window directly, no chroma keying.
 - `[sounds]` is optional; WAV/OGG only (MP3 flaky through SDL_mixer). Sound files are existence-checked by `ConfigManager.validate()` only while `sounds.enabled` is true. `sounds.spin` loops (Renderer owns its channel), `sounds.result` is the fallback for outcome reveal.
+- `[logging]` is optional (`level`, `file`); `main.py` applies it after config load — early errors still go to console at default `info`. Log file paths resolve relative to the config file's directory.
 - `chroma_key` RGB is the OBS key color: it must not appear in card art or the overlay; `window.overlay` is an alpha PNG sized to the window.
 - Outcome card images, overlay and background image are checked for existence by `ConfigManager.validate()`.
 

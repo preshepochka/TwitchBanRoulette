@@ -46,6 +46,12 @@ overlay = "assets/overlay.png"
 #tick = "assets/sounds/tick.wav"     # click when a card passes the pointer
 #result = "assets/sounds/result.wav" # played when an outcome has no own sound
 
+# Optional logging setup.
+[logging]
+#level = "info"            # debug | info | warning | error
+#file = "roulette.log"     # optional: also append the log to this file
+                           # (path relative to the config file)
+
 # Each outcome is a card + weight + action.
 # Weights are relative, they don't have to sum to 100:
 # 40/5/55 gives the same odds as 4/0.5/5.5 or 80/10/110.

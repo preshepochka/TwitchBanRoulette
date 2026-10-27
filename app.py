@@ -41,6 +41,8 @@ class App:
             redemption = self.bot.queue.get_nowait()
         except Empty:
             return
+        log.info("reward redeemed by %s — spinning...",
+                 redemption.get("user_name"))
         self._start_spin(redemption, 0)
 
     def _start_spin(self, redemption: dict, rerolls: int) -> None:
