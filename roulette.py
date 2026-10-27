@@ -14,7 +14,7 @@ class SpinPlan:
 class Roulette:
     def __init__(self, outcomes: dict[str, Outcome], window_cfg: WindowConfig):
         self.names = list(outcomes.keys())
-        self.weights = [outcomes[name].chance for name in self.names]
+        self.weights = [outcomes[name].weight for name in self.names]
         self._index = {name: i for i, name in enumerate(self.names)}
 
         stride = window_cfg.card_size[0] + window_cfg.gap

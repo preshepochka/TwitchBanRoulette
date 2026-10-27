@@ -1,9 +1,15 @@
+import logging
 from queue import Empty
+
+from bot import TwitchError
+from outcomes import apply
 from renderer import RenderEvent, RenderState
+
+log = logging.getLogger(__name__)
+
 
 class App:
     def __init__(self, config, bot, roulette, renderer):
-        self.config = config
         self.bot = bot
         self.roulette = roulette
         self.renderer = renderer
@@ -38,9 +44,12 @@ class App:
     def _apply_consequence(self):
         redemption, plan = self._current
         outcome = self.outcomes[plan.winner_name]
-        self.bot.execute_action(outcome.action, redemption["user_id"],
-                                duration=outcome.duration, text=outcome.text)
-        self.bot.fulfill(redemption["id"])
-        print(f"[app] {redemption['user_name']} -> {plan.winner_name} "
-              f"({outcome.action})")
+        ok = apply(self.bot, outcome.action, redemption["user_id"])
+        if ok:
+            try:
+                self.bot.fulfill_redemption(redemption["id"])
+            except TwitchError as e:
+                log.error("fulfill failed for %s: %s", redemption["id"], e)
+        log.info("%s -> %s (%s)", redemption["user_name"], plan.winner_name,
+                 outcome.action.type)
         self._current = None

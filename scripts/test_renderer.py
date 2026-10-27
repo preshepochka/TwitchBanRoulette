@@ -1,18 +1,17 @@
-from roulette import Roulette
-
 from config_manager import ConfigManager
 from renderer import Renderer, RenderEvent
+from roulette import Roulette
 
 
 def main() -> None:
-    manager = ConfigManager("config.json")
+    manager = ConfigManager("config.toml")
     if not manager.validate():
         raise SystemExit("Invalid config")
     cfg = manager.load()
 
     base = manager.config_path.parent
     outcomes = list(cfg.outcomes.items())            # [(name, Outcome), ...]
-    card_paths = [base / o.img for _, o in outcomes]
+    card_paths = [base / o.image for _, o in outcomes]
     overlay_path = (base / cfg.window.overlay) if cfg.window.overlay else None
 
     renderer = Renderer(cfg.window, card_paths, overlay_path)

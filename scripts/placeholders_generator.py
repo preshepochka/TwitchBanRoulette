@@ -29,6 +29,6 @@ if __name__ == "__main__":
     pygame.init()
     for name, color in CARDS.items():
         make_card(Path(f"assets/cards/{name}.png"), color)
-    cfg = ConfigManager("config.json").load()
+    cfg = ConfigManager("config.toml").load()
     make_overlay(Path("assets/overlay.png"), cfg.window.width, cfg.window.height)
     print("Placeholders created")

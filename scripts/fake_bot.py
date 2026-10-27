@@ -2,7 +2,10 @@ import threading
 import time
 from queue import Queue
 
+
 class FakeBot:
+    """Stands in for Bot: pushes fake redemptions on a timer, prints actions."""
+
     def __init__(self, every: float = 6.0):
         self.queue: Queue = Queue()
         self.every = every
@@ -26,9 +29,14 @@ class FakeBot:
             })
             time.sleep(self.every)
 
-    def execute_action(self, action, user_id, duration=None, text=None):
-        print(f"[fake-bot] {action} -> {user_id} (duration={duration}, text={text!r})")
+    def timeout_user(self, user_id, duration):
+        print(f"[fake-bot] timeout {user_id} for {duration}s")
 
-    def fulfill(self, redemption_id):
+    def ban_user(self, user_id):
+        print(f"[fake-bot] ban {user_id}")
+
+    def send_chat_message(self, text):
+        print(f"[fake-bot] message: {text!r}")
+
+    def fulfill_redemption(self, redemption_id):
         print(f"[fake-bot] fulfill {redemption_id}")
-

@@ -1,0 +1,43 @@
+# TwitchBanRoulette configuration.
+# Copy this file to config.toml and fill it in.
+
+[twitch]
+# Your Twitch channel name, as in the URL twitch.tv/<channel>.
+channel = "your_channel_name"
+# Client ID of your registered application (see README, "Getting a Twitch Token").
+client_id = "your_client_id"
+# OAuth user token (see README). The "oauth:" prefix is optional.
+token = "oauth:your_token_here"
+# UUID of the channel points reward that triggers the roulette.
+# Twitch doesn't show it in the UI; list your rewards with:
+#   python3 scripts/list_rewards.py
+reward_id = "your_reward_id"
+
+[window]
+# Window size in pixels (capture this window in OBS).
+width = 800
+height = 200
+# OBS chroma key color (RGB). This color must not appear in card art or overlay.
+chroma_key = [0, 255, 0]
+# Optional PNG drawn on top of everything (frame, pointer, logo).
+# Alpha transparency; must be sized width x height.
+overlay = "assets/overlay.png"
+
+# Each outcome is a card + weight + action.
+# Weights are relative, they don't have to sum to 100:
+# 40/5/55 gives the same odds as 4/0.5/5.5 or 80/10/110.
+
+[outcomes.Timeout]
+image = "assets/cards/timeout.png"
+weight = 40
+action = { type = "timeout", duration = 60 }  # duration: seconds
+
+[outcomes.Ban]
+image = "assets/cards/ban.png"
+weight = 5
+action = { type = "ban" }
+
+[outcomes.Nothing]
+image = "assets/cards/message.png"
+weight = 55
+action = { type = "message", text = "Wow, absolutely nothing" }

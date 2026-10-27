@@ -1,54 +1,62 @@
-import json
+import logging
+import tomllib
 from pathlib import Path
+
 from pydantic import ValidationError
-from config_schema import Config, Outcome, TwitchConfig, WindowConfig
+
+from config_schema import Config
+
+log = logging.getLogger(__name__)
+
 
 class ConfigManager:
-    """Config manager"""
+    """Loads config.toml and checks that referenced assets exist."""
+
     def __init__(self, config_path: str):
-        """
-        Args:
-            config_path: path to config.json file
-        """
         self.config_path = Path(config_path)
         self._config: Config | None = None
-    
+
     def validate(self) -> bool:
         try:
             cfg = self._load_raw()
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            prinf(f"Cannot read config: {e}")
+        except FileNotFoundError:
+            log.error("config file not found: %s\n"
+                      "Copy config.example.toml to config.toml and fill it in.",
+                      self.config_path)
+            return False
+        except tomllib.TOMLDecodeError as e:
+            log.error("config is not valid TOML: %s", e)
             return False
         except ValidationError as e:
-            print("Config is invalid:")
-            print(e)
+            log.error("config is invalid:\n%s\n"
+                      "See config.example.toml for the reference format.",
+                      _format_errors(e))
             return False
 
         ok = True
         base = self.config_path.parent
         for name, o in cfg.outcomes.items():
-            if not (base / o.img).exists():
-                print(f"{name}: image not found: {o.img}")
+            if not (base / o.image).exists():
+                log.error("%s: image not found: %s", name, o.image)
                 ok = False
         if cfg.window.overlay and not (base / cfg.window.overlay).exists():
-            print(f"window.overlay: file not found: {cfg.window.overlay}")
+            log.error("window.overlay: file not found: %s",
+                      cfg.window.overlay)
             ok = False
         return ok
-    
+
     def load(self) -> Config:
         if self._config is None:
             self._config = self._load_raw()
         return self._config
-    
+
     def _load_raw(self) -> Config:
-        with open(self.config_path, "r", encoding="utf-8") as f:
-            return Config.model_validate(json.load(f))
-    
-    def get_twitch(self) -> TwitchConfig:
-        return self.load().twitch
+        with open(self.config_path, "rb") as f:
+            return Config.model_validate(tomllib.load(f))
 
-    def get_window(self) -> WindowConfig:
-        return self.load().window
 
-    def get_outcomes(self) -> dict[str, Outcome]:
-        return self.load().outcomes
+def _format_errors(e: ValidationError) -> str:
+    return "\n".join(
+        f"  {'.'.join(str(part) for part in err['loc'])}: {err['msg']}"
+        for err in e.errors()
+    )

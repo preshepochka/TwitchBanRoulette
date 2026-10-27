@@ -51,54 +51,54 @@ https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=YOUR_CLIENT_
 
 ## Getting the Reward ID
 
-Twitch doesn't display the reward ID in the control panel. You can get it via the bot's debug mode:
+Twitch doesn't display the reward ID in the control panel. Get it with a helper script:
 
 1. Create a reward in Creator Dashboard → Viewer Rewards → Channel Points Rewards.
-2. Run the program in debug mode (see "Running" section).
-3. Redeem the reward once yourself from a test account.
-4. A line like `ID: 123e4567-... | Title: ...` will appear in the console.
+2. Fill in `channel`, `client_id` and `token` in `config.toml` (see below).
+3. Run:
+   ```bash
+   python3 scripts/list_rewards.py
+   ```
+4. A line like `123e4567-...  My reward` will appear in the console.
 5. Copy the ID into the config as `twitch.reward_id`.
 
 ## Configuration
 
-Copy `config.example.json` to `config.json` and fill it out:
-```json
-{
-  "twitch": {
-    "channel": "your_channel_name",
-    "token": "oauth:your_token_here",
-    "reward_id": "twitch_reward_id"
-  },
-  "window": {
-    "width": 800,
-    "height": 200,
-    "chroma_key": [0, 255, 0],
-    "overlay": "assets/overlay.png"
-  },
-  "outcomes": {
-    "timeout_60": {
-      "img": "assets/cards/timeout.png",
-      "chance": 40,
-      "action": "timeout",
-      "duration": 60
-    },
-    "ban": {
-      "img": "assets/cards/ban.png",
-      "chance": 5,
-      "action": "ban"
-    },
-    "funny_message": {
-      "img": "assets/cards/message.png",
-      "chance": 55,
-      "action": "message",
-      "text": "Wow, absolutely nothing"
-    }
-  }
-}
+Copy `config.example.toml` to `config.toml` and fill it out:
+
+```toml
+[twitch]
+channel = "your_channel_name"
+client_id = "your_client_id"
+token = "oauth:your_token_here"
+reward_id = "your_reward_id"
+
+[window]
+width = 800
+height = 200
+chroma_key = [0, 255, 0]
+overlay = "assets/overlay.png"
+
+[outcomes.Timeout]
+image = "assets/cards/timeout.png"
+weight = 40
+action = { type = "timeout", duration = 60 }
+
+[outcomes.Ban]
+image = "assets/cards/ban.png"
+weight = 5
+action = { type = "ban" }
+
+[outcomes.Nothing]
+image = "assets/cards/message.png"
+weight = 55
+action = { type = "message", text = "Wow, absolutely nothing" }
 ```
+
 ### `twitch`
 
 - `channel` — the channel name the bot listens to.
+- `client_id` — client ID of your registered application (from the token section).
 - `token` — OAuth token from the previous section.
 - `reward_id` — UUID of the trigger reward.
 
@@ -110,15 +110,17 @@ Copy `config.example.json` to `config.json` and fill it out:
 
 ### `outcomes`
 
-Each key is an outcome name, value is its parameters:
+Each section is one outcome: a card, its weight and the action:
 
-- `img` (required) — path to the card image.
-- `chance` (required) — drop probability in percent. Sum of all `chance` values must equal exactly 100.
-- `action` (required) — one of `timeout`, `ban`, `message`.
-- `duration` — required for `timeout`, duration in seconds.
-- `text` — required for `message`, text to send in chat on behalf of the bot.
+- `image` — path to the card image.
+- `weight` — relative drop weight. Weights don't have to sum to 100: `40/5/55` gives the same odds as `4/0.5/5.5`.
+- `action` — inline table with a `type` and type-specific fields:
+  - `{ type = "timeout", duration = 60 }` — timeout, `duration` in seconds (required).
+  - `{ type = "ban" }` — permanent ban.
+  - `{ type = "message", text = "..." }` — chat message from the bot, `text` (required).
+  - `{ type = "nothing" }` — just show the card, do nothing.
 
-All paths are relative to the project root.
+All paths are relative to the config file's directory.
 
 ## OBS Setup
 
@@ -141,10 +143,12 @@ main.py                # entry point
 app.py                 # coordinator, event queue
 config_manager.py      # config loading and validation
 config_schema.py       # config schema (pydantic)
-bot.py                 # Twitch listener + action execution
+outcomes.py            # outcome actions (timeout/ban/message/nothing)
+bot.py                 # Twitch API client, redemption polling
 roulette.py            # winner selection, strip generation
 renderer.py            # Pygame window, animation
 assets/                # card images and overlay
+scripts/               # manual helper scripts (not a test suite)
 
 ## License
 
