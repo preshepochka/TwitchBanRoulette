@@ -45,7 +45,12 @@ def main() -> None:
         "Poll": Outcome(image=str(assets / "cards/poll.png"), weight=15,
                         action=PollAction(title="Куда идём вечером?",
                                           choices=["Баня", "Мут"],
-                                          duration=60)),
+                                          duration=15,
+                                          on_win={
+                                              "Баня": TimeoutAction(duration=60),
+                                              "Мут": MessageAction(
+                                                  text="{user} избежал бани"),
+                                          })),
         "Vip": Outcome(image=str(assets / "cards/vip.png"), weight=15,
                        action=VipAddAction()),
         "Airhorn": Outcome(image=str(assets / "cards/airhorn.png"), weight=10,

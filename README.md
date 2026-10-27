@@ -225,7 +225,7 @@ Actions (inline table, validated by `type`):
 | `{ type = "message" }` | `text` (required) | Chat message from the bot; `{user}` is replaced with the viewer's name |
 | `{ type = "nothing" }` | — | Just show the card |
 | `{ type = "reroll" }` | — | Spin again for the same viewer; chains are capped at 8, then the redemption is closed with no effect |
-| `{ type = "poll" }` | `title`, `choices` (2–5), `duration` (15–300 s) | Starts a Twitch poll (needs the `channel:manage:polls` scope) |
+| `{ type = "poll" }` | `title`, `choices` (2–5), `duration` (15–300 s), `on_win` (optional) | Starts a Twitch poll (needs the `channel:manage:polls` scope) |
 | `{ type = "vip_add" }` | — | Grants the viewer VIP (needs `moderator:manage:vips`) |
 | `{ type = "vip_remove" }` | — | Revokes the viewer's VIP (needs `moderator:manage:vips`) |
 | `{ type = "sound" }` | `sound`, `volume` (optional) | Plays a sound and does nothing else — the card itself is the show |
@@ -238,6 +238,36 @@ image = "assets/cards/airhorn.png"
 weight = 5
 action = { type = "sound", sound = "assets/sounds/airhorn.wav", volume = 1.0 }
 ```
+
+### Poll outcomes: let chat decide
+
+A poll can carry consequences — chat votes, and the winning choice's action applies to the viewer who triggered the roulette:
+
+```toml
+[outcomes.FatePoll]
+image = "assets/cards/fate.png"
+weight = 10
+
+[outcomes.FatePoll.action]
+type = "poll"
+title = "The fate of {user}?"
+choices = ["Timeout", "VIP", "Mercy"]
+duration = 60
+
+[outcomes.FatePoll.action.on_win]
+Timeout = { type = "timeout", duration = 120 }
+VIP = { type = "vip_add" }
+Mercy = { type = "nothing" }
+```
+
+How it works and what to keep in mind:
+
+- After the poll ends, the bot reads the result and applies the action mapped to the winning choice (keys of `on_win` must match choice titles exactly; for non-Latin titles quote them in TOML: `"Баня" = { type = "timeout" }`).
+- Actions apply to the **viewer who triggered the roulette**, and `{user}` works in their texts as usual.
+- A choice without a mapping simply does nothing.
+- Twitch allows **one active poll at a time** — if the previous poll is still running, creating a new one fails; the error is logged and the spin just shows the card.
+- If the poll is cancelled or fetch fails, the error is logged and nothing happens; the bot keeps retrying for a short while, then gives up.
+- `reroll` is not supported as a poll result.
 
 ## Assets: what works best
 

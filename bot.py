@@ -45,9 +45,10 @@ class Bot:
         if self._broadcaster_id is None:
             data = self._request("GET", "/users", params={"login": self.channel})
             users = data.get("data") or []
-            if not users:
+            broadcaster_id = str(users[0].get("id") or "") if users else ""
+            if not broadcaster_id:
                 raise TwitchError(f"channel not found: {self.channel!r}")
-            self._broadcaster_id = users[0]["id"]
+            self._broadcaster_id = broadcaster_id
         return self._broadcaster_id
 
     def fetch_rewards(self) -> list[dict]:
@@ -102,13 +103,24 @@ class Bot:
                               "id": redemption_id},
                       json={"status": "FULFILLED"})
 
-    def create_poll(self, title: str, choices: list[str], duration: int) -> None:
+    def create_poll(self, title: str, choices: list[str], duration: int) -> str:
         bid = self.get_broadcaster_id()
-        self._request("POST", "/polls",
-                      json={"broadcaster_id": bid,
-                            "title": title,
-                            "choices": [{"title": c} for c in choices],
-                            "duration": duration})
+        data = self._request("POST", "/polls",
+                             json={"broadcaster_id": bid,
+                                   "title": title,
+                                   "choices": [{"title": c} for c in choices],
+                                   "duration": duration})
+        try:
+            return data["data"][0]["id"]
+        except (KeyError, IndexError, TypeError) as e:
+            raise TwitchError(f"unexpected poll creation response: {data}") from e
+
+    def get_poll(self, poll_id: str) -> dict:
+        data = self._request("GET", "/polls",
+                             params={"broadcaster_id": self.get_broadcaster_id(),
+                                     "id": poll_id})
+        polls = data.get("data") or []
+        return polls[0] if polls else {}
 
     def add_vip(self, user_id: str) -> None:
         self._request("POST", "/moderation/vips",

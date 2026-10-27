@@ -118,13 +118,6 @@ class RerollAction(StrictModel):
     type: Literal["reroll"] = "reroll"
 
 
-class PollAction(StrictModel):
-    type: Literal["poll"] = "poll"
-    title: str
-    choices: list[str] = Field(min_length=2, max_length=5)
-    duration: int = Field(default=60, ge=15, le=300)
-
-
 class VipAddAction(StrictModel):
     type: Literal["vip_add"] = "vip_add"
 
@@ -137,6 +130,28 @@ class SoundAction(StrictModel):
     type: Literal["sound"] = "sound"
     sound: str
     volume: float = Field(default=1.0, ge=0, le=1)
+
+
+SimpleAction = Annotated[
+    Union[TimeoutAction, BanAction, MessageAction, NothingAction,
+          RerollAction, VipAddAction, VipRemoveAction, SoundAction],
+    Field(discriminator="type"),
+]
+
+
+class PollAction(StrictModel):
+    type: Literal["poll"] = "poll"
+    title: str
+    choices: list[str] = Field(min_length=2, max_length=5)
+    duration: int = Field(default=60, ge=15, le=300)
+    on_win: dict[str, SimpleAction] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _on_win_matches_choices(self):
+        unknown = sorted(set(self.on_win) - set(self.choices))
+        if unknown:
+            raise ValueError(f"on_win keys not in choices: {unknown}")
+        return self
 
 
 Action = Annotated[

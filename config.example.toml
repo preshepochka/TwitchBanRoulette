@@ -82,7 +82,19 @@ action = { type = "reroll" }
 [outcomes.Poll]
 image = "assets/cards/poll.png"
 weight = 3
-action = { type = "poll", title = "What next?", choices = ["Chill", "Chaos"], duration = 60 }
+
+# Poll action with optional per-choice consequences ("chat votes the fate"):
+# the winning choice's action applies to the viewer who triggered the roulette.
+# Twitch allows only one active poll — a second one fails and is logged.
+[outcomes.Poll.action]
+type = "poll"
+title = "What next?"
+choices = ["Chill", "Chaos"]
+duration = 60
+
+[outcomes.Poll.action.on_win]
+Chill = { type = "nothing" }
+Chaos = { type = "timeout", duration = 120 }
 
 [outcomes.Vip]
 image = "assets/cards/vip.png"
