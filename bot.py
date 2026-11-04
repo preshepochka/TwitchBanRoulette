@@ -16,8 +16,18 @@ class Bot:
     """Twitch transport: Helix requests, redemption polling, action calls."""
 
     BASE = "https://api.twitch.tv/helix"
+    VALIDATE_URL = "https://id.twitch.tv/oauth2/validate"
     POLL_INTERVAL = 2.0
     TIMEOUT = 10
+    # Scopes the core loop cannot work without.
+    REQUIRED_SCOPES = {"channel:manage:redemptions",     # poll + fulfill
+                       "moderator:manage:banned_users"}  # timeout/ban
+    # Scope -> the feature that needs it (nice to have, warn only).
+    OPTIONAL_SCOPES = {
+        "channel:manage:polls": "poll action",
+        "channel:manage:vips": "vip_add/vip_remove actions",
+        "user:write:chat": "message action",
+    }
 
     def __init__(self, client_id: str, token: str, channel: str, reward_id: str):
         self.channel = channel
@@ -38,8 +48,41 @@ class Bot:
                                     timeout=self.TIMEOUT, **kwargs)
             resp.raise_for_status()
         except requests.RequestException as e:
-            raise TwitchError(f"{method} {url}: {e}") from e
+            detail = ""
+            resp_ = getattr(e, "response", None)
+            if resp_ is not None:
+                body = resp_.text[:300]
+                if body:
+                    detail = f" | body: {body}"
+            raise TwitchError(f"{method} {url}: {e}{detail}") from e
         return resp.json()
+
+    def _check_scopes(self) -> None:
+        """Log a warning when the token lacks scopes the app needs."""
+        try:
+            resp = requests.get(
+                self.VALIDATE_URL,
+                headers={"Authorization":
+                         f"OAuth {self._headers['Authorization'].removeprefix('Bearer ')}"},
+                timeout=self.TIMEOUT)
+            resp.raise_for_status()
+            granted = set(resp.json().get("scopes") or [])
+        except (requests.RequestException, ValueError) as e:
+            log.warning("cannot validate token scopes: %s", e)
+            return
+        missing = self.REQUIRED_SCOPES - granted
+        if missing:
+            log.warning(
+                "token is missing required scopes: %s — watching "
+                "redemptions/fulfilling/timeout/ban will fail with 403. "
+                "Re-authorize using the link in README (Getting a token).",
+                ", ".join(sorted(missing)))
+        optional_missing = sorted(
+            f"{scope} ({feature})" for scope, feature in self.OPTIONAL_SCOPES.items()
+            if scope not in granted)
+        if optional_missing:
+            log.info("token lacks optional scopes: %s — those actions "
+                     "will log errors if used", ", ".join(optional_missing))
 
     def get_broadcaster_id(self) -> str:
         if self._broadcaster_id is None:
@@ -64,6 +107,7 @@ class Bot:
         return data["data"]
 
     def start(self) -> None:
+        self._check_scopes()
         self.get_broadcaster_id()
         self._running = True
         threading.Thread(target=self._poll_loop, daemon=True,
