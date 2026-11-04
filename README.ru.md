@@ -95,10 +95,10 @@ python scripts/demo.py        # Windows: py scripts/demo.py
 6. Собери ссылку авторизации, подставив свой `YOUR_CLIENT_ID`:
 
    ```
-   https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&scope=channel%3Amanage%3Aredemptions%20moderator%3Amanage%3Abanned_users%20channel%3Amanage%3Apolls%20channel%3Amanage%3Avips%20user%3Awrite%3Achat
+   https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&scope=channel%3Amanage%3Aredemptions%20moderator%3Amanage%3Abanned_users%20channel%3Amanage%3Apolls%20channel%3Amanage%3Avips%20user%3Awrite%3Achat%20moderator%3Amanage%3Aannouncements
    ```
 
-   Скоупы `polls`, `vips` и `chat` нужны только для действий `poll` / `vip_add` / `vip_remove` / `message` — но лучше включить их сразу, чтобы потом не переавторизовываться.
+   Скоупы `polls`, `vips`, `announcements` и `chat` нужны только для действий `poll` / `vip_add` / `vip_remove` / `announce` / `message` — но лучше включить их сразу, чтобы потом не переавторизовываться.
 7. Открой ссылку, войди как **стример** (владелец канала), нажми *Authorize*. Бросит на `localhost#access_token=...`, страница не загрузится — это нормально.
 8. Скопируй токен из адресной строки (кусок между `access_token=` и `&`) в конфиг как `twitch.token`. Префикс `oauth:` не обязателен — срезается автоматически.
 
@@ -227,6 +227,27 @@ sound_volume = 1.0
 action = { type = "timeout", duration = 60 }
 ```
 
+**Случайные варианты.** Там, где принимается путь к звуку или текст сообщения, можно передать список — каждый раз случайно выбирается один:
+
+```toml
+[outcomes.Message]
+image = "assets/cards/message.png"
+weight = 20
+action = { type = "message", text = [
+    "{user}, тебе повезло",
+    "Рулетка милосердна сегодня, {user}",
+    "Слово — чату. {user} спасён.",
+] }
+
+[outcomes.Sting]
+image = "assets/cards/sting.png"
+weight = 10
+sound = ["assets/sounds/sting1.ogg", "assets/sounds/sting2.ogg"]
+action = { type = "sound", sound = ["assets/sounds/airhorn.wav", "assets/sounds/drum.wav"] }
+```
+
+То же работает для `sounds.spin` / `sounds.tick` / `sounds.result`. Все файлы из списков должны существовать (проверяется при старте).
+
 Приоритет при раскрытии победителя: **звук действия** (`type = "sound"`) → **звук исхода `sound`** → **`sounds.result`**.
 
 ### `logging`
@@ -265,10 +286,11 @@ file = "roulette.log"
 | `{ type = "timeout" }` | `duration` (секунды, обязательно) | Таймаут зрителю |
 | `{ type = "ban" }` | — | Перманентный бан |
 | `{ type = "message" }` | `text` (обязательно) | Сообщение в чат от бота; `{user}` заменяется на имя зрителя |
+| `{ type = "announce" }` | `text` (обязательно), `color` (опционально) | Выделенное объявление (blue/green/orange/purple/primary); `{user}` работает; нужен скоуп `moderator:manage:announcements` |
 | `{ type = "nothing" }` | — | Просто показать карточку |
 | `{ type = "reroll" }` | — | Крутить ещё раз для того же зрителя; цепочка ограничена 8, потом активация закрывается без эффекта |
 | `{ type = "poll" }` | `title`, `choices` (2–5), `duration` (15–300 с), `on_win` (опционально) | Запускает опрос Twitch (нужен скоуп `channel:manage:polls`) |
-| `{ type = "vip_add" }` | — | Выдаёт зрителю VIP (нужен `channel:manage:vips`) |
+| `{ type = "vip_add" }` | `duration` (опционально, секунды) | Выдаёт зрителю VIP; с `duration` снимается автоматически через это время (нужен `channel:manage:vips`) |
 | `{ type = "vip_remove" }` | — | Снимает VIP (нужен `channel:manage:vips`) |
 | `{ type = "sound" }` | `sound`, `volume` (опционально) | Играет звук и больше ничего не делает — карточка и есть шоу |
 
@@ -338,6 +360,42 @@ duration = 60
 - `spin` должен зацикливаться бесшовно: либо трек длиной с `spin_duration` (~4 с), либо чистый лупляемый whoosh.
 - `tick` лучше всего работает как очень короткий клик (30–80 мс).
 - `result` и звуки исходов: короткий стинг, в идеале короче `result_hold` (~3 с).
+
+**Анимации победы** (`assets/animations/*`)
+
+Исход может проигрывать анимацию при победе — поверх всего окна, зацикленно до конца показа результата:
+
+```toml
+[outcomes.Ban]
+image = "assets/cards/ban.png"
+weight = 5
+animation = "assets/animations/ban.gif"   # полноэкранный оверлей при победе
+effect = "shake"                          # опциональный встроенный эффект сверху
+action = { type = "ban" }
+```
+
+- **Форматы:** `.gif`, `.webp` или `.png` (APNG) — любой; длительности кадров берутся из файла. Декодирует Pillow (ставится вместе с приложением).
+- **Размер:** делай ровно размер окна (800×200 по умолчанию) или то же соотношение сторон — растянется как есть.
+- **Прозрачность:** GIF умеет только жёсткую прозрачность (без плавных краёв — контуры будут чуть пиксельными); WebP и APNG хранят полную плавную альфу. Прозрачные места показывают рулетку позади.
+- Рисовать где угодно: Aseprite, Krita, Canva, Photopea или любой «gif maker» — экспортируй GIF и клади в папку.
+- Отсутствие Pillow или битый файл не роняют приложение: пишется предупреждение, рулетка работает без анимации.
+
+**Встроенные эффекты победы** — без картинок, чистый код:
+
+```toml
+[window]
+winner_effect = "confetti"   # none (по умолчанию) | pulse | shake | confetti
+
+[window.confetti]
+count = 120
+colors = [[255,80,80], [80,200,255], [255,220,80], [120,255,120]]
+```
+
+- `pulse` — карточка победителя «дышит» (плавно растёт/сжимается).
+- `shake` — лента трясётся ~0.6 с после победы, затухая.
+- `confetti` — конфетти сыпется по окну в цветах из `window.confetti`.
+
+`winner_effect` задаётся глобально или переопределяется на исходе через `effect = "..."` (`effect = "none"` выключает для конкретной карточки). Эффекты совместимы с GIF-анимацией — можно и то и другое.
 
 **Размер окна**
 

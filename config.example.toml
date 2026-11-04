@@ -40,6 +40,8 @@ overlay = "assets/overlay.png"
 
 # Optional sounds. Formats: WAV or OGG (avoid MP3).
 # With sounds disabled (or the section removed) the app stays fully silent.
+# Any of these also accepts a LIST of files — one is picked at random:
+#   spin = ["assets/sounds/spin1.wav", "assets/sounds/spin2.wav"]
 [sounds]
 #enabled = true
 #volume = 1.0                        # master volume 0..1
@@ -73,7 +75,11 @@ action = { type = "ban" }
 [outcomes.Nothing]
 image = "assets/cards/message.png"
 weight = 45
-action = { type = "message", text = "{user}, wow, absolutely nothing" }
+# text accepts a list of variants — one is sent at random:
+action = { type = "message", text = [
+  "{user}, wow, absolutely nothing",
+  "The roulette shows mercy... this time. {user} lives.",
+] }
 
 [outcomes.Reroll]
 image = "assets/cards/reroll.png"
@@ -100,7 +106,22 @@ Chaos = { type = "timeout", duration = 120 }
 [outcomes.Vip]
 image = "assets/cards/vip.png"
 weight = 2
-action = { type = "vip_add" }
+# duration (seconds) is optional: with it the VIP is removed automatically.
+# Omit for a permanent VIP. NOTE: the timer lives in the app — if the app
+# restarts before it expires, the VIP stays until removed manually.
+action = { type = "vip_add", duration = 300 }
+
+[outcomes.Hype]
+image = "assets/cards/vip.png"
+weight = 2
+# animation: gif/webp/apng played fullscreen over the window on win;
+# effect: built-in winner effect, one of none|pulse|shake|confetti
+animation = "assets/animations/celebrate.gif"
+effect = "confetti"
+action = { type = "announce", color = "purple", text = [
+  "{user} survived the roulette!",
+  "A round of applause for {user}!",
+] }
 
 [outcomes.Airhorn]
 image = "assets/cards/airhorn.png"

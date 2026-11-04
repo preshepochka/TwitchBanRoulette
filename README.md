@@ -97,10 +97,10 @@ Two things are needed from Twitch: an OAuth token and the reward ID. Register yo
 6. Build the authorization URL, replacing `YOUR_CLIENT_ID`:
 
    ```
-   https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&scope=channel%3Amanage%3Aredemptions%20moderator%3Amanage%3Abanned_users%20channel%3Amanage%3Apolls%20channel%3Amanage%3Avips%20user%3Awrite%3Achat
+   https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&scope=channel%3Amanage%3Aredemptions%20moderator%3Amanage%3Abanned_users%20channel%3Amanage%3Apolls%20channel%3Amanage%3Avips%20user%3Awrite%3Achat%20moderator%3Amanage%3Aannouncements
    ```
 
-   The `polls`, `vips` and `chat` scopes are only needed if you plan to use the `poll` / `vip_add` / `vip_remove` / `message` actions — but including them up front saves you re-authorizing later.
+   The `polls`, `vips`, `announcements` and `chat` scopes are only needed if you plan to use the `poll` / `vip_add` / `vip_remove` / `announce` / `message` actions — but including them up front saves you re-authorizing later.
 7. Open the URL, log in as the **broadcaster**, click *Authorize*. The browser will redirect to `localhost#access_token=...` and the page won't load — that's normal.
 8. Copy the token from the address bar (the part between `access_token=` and `&`) into the config as `twitch.token`. The `oauth:` prefix is optional — it's stripped automatically.
 
@@ -229,6 +229,27 @@ sound_volume = 1.0
 action = { type = "timeout", duration = 60 }
 ```
 
+**Random variants.** Wherever a sound path or a message text is accepted, you can pass a list instead — one item is picked at random every time:
+
+```toml
+[outcomes.Message]
+image = "assets/cards/message.png"
+weight = 20
+action = { type = "message", text = [
+    "{user}, тебе повезло",
+    "Рулетка милосердна сегодня, {user}",
+    "Слово — чату. {user} спасён.",
+] }
+
+[outcomes.Sting]
+image = "assets/cards/sting.png"
+weight = 10
+sound = ["assets/sounds/sting1.ogg", "assets/sounds/sting2.ogg"]
+action = { type = "sound", sound = ["assets/sounds/airhorn.wav", "assets/sounds/drum.wav"] }
+```
+
+The same works for `sounds.spin` / `sounds.tick` / `sounds.result`. Every listed file must exist (checked on startup).
+
 Priority when the winner is revealed: **action sound** (`type = "sound"`) → **outcome `sound`** → **`sounds.result`**.
 
 ### `logging`
@@ -267,10 +288,11 @@ Actions (inline table, validated by `type`):
 | `{ type = "timeout" }` | `duration` (seconds, required) | Times the viewer out |
 | `{ type = "ban" }` | — | Permanent ban |
 | `{ type = "message" }` | `text` (required) | Chat message from the bot; `{user}` is replaced with the viewer's name |
+| `{ type = "announce" }` | `text` (required), `color` (optional) | Highlighted announcement (blue/green/orange/purple/primary); `{user}` works; needs the `moderator:manage:announcements` scope |
 | `{ type = "nothing" }` | — | Just show the card |
 | `{ type = "reroll" }` | — | Spin again for the same viewer; chains are capped at 8, then the redemption is closed with no effect |
 | `{ type = "poll" }` | `title`, `choices` (2–5), `duration` (15–300 s), `on_win` (optional) | Starts a Twitch poll (needs the `channel:manage:polls` scope) |
-| `{ type = "vip_add" }` | — | Grants the viewer VIP (needs `channel:manage:vips`) |
+| `{ type = "vip_add" }` | `duration` (optional, seconds) | Grants the viewer VIP; with `duration` it is removed automatically after that time (needs `channel:manage:vips`) |
 | `{ type = "vip_remove" }` | — | Revokes the viewer's VIP (needs `channel:manage:vips`) |
 | `{ type = "sound" }` | `sound`, `volume` (optional) | Plays a sound and does nothing else — the card itself is the show |
 
@@ -340,6 +362,42 @@ Everything lives under `assets/`. Placeholder art and sounds are included, so th
 - `spin` should loop seamlessly: either a track long enough to cover `spin_duration` (~4 s) or a clean loopable noise/whoosh.
 - `tick` works best as a very short click (30–80 ms).
 - `result` and outcome sounds: a short sting, ideally under `result_hold` (~3 s).
+
+**Win animations** (`assets/animations/*`)
+
+An outcome can play an animated overlay when it wins — drawn over the whole window, looping until the result hides:
+
+```toml
+[outcomes.Ban]
+image = "assets/cards/ban.png"
+weight = 5
+animation = "assets/animations/ban.gif"   # fullscreen overlay on win
+effect = "shake"                          # optional built-in effect on top
+action = { type = "ban" }
+```
+
+- **Formats:** `.gif`, `.webp` or `.png` (APNG) — pick any; frame durations come from the file itself. Pillow (installed with the app) does the decoding.
+- **Size:** make it the exact window size (800×200 by default) or the same aspect ratio — it is stretched to fit.
+- **Transparency:** GIF supports hard transparency (no smooth edges — expect slightly pixelated outlines); WebP and APNG keep full smooth alpha. Transparent areas show the roulette behind.
+- Aseprite, Krita, Canva, Photopea or any "gif maker" work for authoring — export a GIF and drop it in.
+- Missing Pillow or a broken file is logged and skipped: the roulette runs without the animation.
+
+**Built-in winner effects** — no art needed, pure code:
+
+```toml
+[window]
+winner_effect = "confetti"   # none (default) | pulse | shake | confetti
+
+[window.confetti]
+count = 120
+colors = [[255,80,80], [80,200,255], [255,220,80], [120,255,120]]
+```
+
+- `pulse` — the winner card breathes (grows/shrinks slightly).
+- `shake` — the strip shakes for ~0.6 s after the win, decaying.
+- `confetti` — particles rain over the window in `window.confetti` colors.
+
+Set `winner_effect` globally or override per outcome with `effect = "..."` (`effect = "none"` disables it for that card). Effects stack with a GIF animation if you want both.
 
 **Window size**
 
@@ -416,17 +474,18 @@ python -c "import pygame.image; print(pygame.image.get_extended(), pygame.image.
 
 ```
 main.py             entry point, wires everything together
-app.py              main loop: redemptions → spins → consequences
+app.py              main loop: redemptions → spins → consequences, timed-action scheduler
 bot.py              Twitch API client and redemption polling
-outcomes.py         applying outcome actions (timeout/ban/message/...)
+outcomes.py         applying outcome actions (timeout/ban/message/...), random variants
 roulette.py         winner selection, spin plan
-renderer.py         pygame window, animation, spin/tick sounds
+renderer.py         pygame window, animation, spin/tick sounds, winner effects
+animations.py       gif/webp/apng loader for win animations (Pillow)
 audio.py            sound playback (mixer wrapper)
-modes.py            debug modes (--demo/--renderer/--test/--placeholders/--list-rewards)
+modes.py            debug modes (--demo/--renderer/--test/--placeholders/--list-rewards/--create-reward)
 config_manager.py   config.toml loading and validation
 config_schema.py    config schema (pydantic)
 fake_bot.py         fake bot double used by the debug modes
-assets/             cards, overlay, sounds
+assets/             cards, overlay, sounds, animations
 scripts/            thin wrappers over the debug modes (not a test suite)
 ```
 
