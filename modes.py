@@ -9,7 +9,7 @@ import pygame
 
 from app import App
 from audio import Audio
-from bot import Bot
+from bot import Bot, TwitchError
 from config_manager import ConfigManager
 from config_schema import (BanAction, Config, MessageAction, Outcome,
                            PollAction, RerollAction, SoundAction,
@@ -163,6 +163,36 @@ def list_rewards() -> None:
     bot = Bot(t.client_id, t.token, t.channel, t.reward_id)
     for r in bot.fetch_rewards():
         print(f'{r["id"]}  {r["title"]}')
+
+
+def create_reward() -> None:
+    """Create the roulette reward via the API.
+
+    Rewards made in the Creator Dashboard belong to the dashboard client,
+    and Twitch won't let any other client manage their redemptions (403) —
+    the reward must be created by this app. If a reward with the same
+    title already exists, its ID is looked up and printed instead.
+    """
+    manager, cfg = _load_config()
+    if cfg.twitch is None:
+        raise SystemExit("no [twitch] section in config.toml — "
+                         "fill it in first (see README)")
+    t = cfg.twitch
+    bot = Bot(t.client_id, t.token, t.channel, t.reward_id)
+    title = "Play the roulette"
+    try:
+        reward_id = bot.create_reward(title, cost=500,
+                                      prompt="Let the roulette decide")
+        log.info("reward created: %s", reward_id)
+    except TwitchError as e:
+        if "already exists" not in str(e).lower():
+            raise
+        log.warning("a reward named %r already exists — looking it up", title)
+        matching = [r for r in bot.fetch_rewards() if r["title"] == title]
+        if not matching:
+            raise
+        reward_id = matching[0]["id"]
+    print(f'\nCopy into config.toml:\nreward_id = "{reward_id}"\n')
 
 
 def generate_placeholders(force: bool = False) -> None:

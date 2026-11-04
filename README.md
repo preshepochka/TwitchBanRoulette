@@ -6,10 +6,12 @@ Everything runs locally on the streamer's computer: no web server, no public IP,
 
 ## How it works
 
-1. You create a single channel-points reward in the Twitch dashboard (for example, "Play the roulette — 500 points").
+1. The app creates one channel-points reward on your channel ("Play the roulette"). This has to be done through the app — see the note below.
 2. The program watches for redemptions of that reward.
 3. When a viewer redeems it, the window spins a strip of outcome cards and one wins — based on the weights you set.
 4. The bot applies that outcome's action to the viewer, then marks the redemption as fulfilled.
+
+> **Why the app creates the reward itself:** Twitch lets a client manage redemptions only of the rewards *it* created. A reward made in the Creator Dashboard belongs to the dashboard client, and this app would get a 403 the moment a viewer redeemed it. Create it with `--create-reward` (below); afterwards you can freely restyle it (icon, cost, prompt) in the dashboard.
 
 Outcomes are fully yours to define: you decide how many there are, what each card looks like, how likely it is, what it does and whether it makes a sound.
 
@@ -44,6 +46,7 @@ All debug modes work on every platform (prefix with the binary name for the exe,
 | `--placeholders` | Create placeholder assets (existing files are kept) |
 | `--placeholders --force` | Regenerate all placeholder assets, overwriting |
 | `--list-rewards` | Print channel-points reward IDs (needs credentials) |
+| `--create-reward` | Create the roulette reward via the API and print its ID (needs credentials) |
 
 ## Run from source
 
@@ -101,20 +104,27 @@ Two things are needed from Twitch: an OAuth token and the reward ID. Register yo
 7. Open the URL, log in as the **broadcaster**, click *Authorize*. The browser will redirect to `localhost#access_token=...` and the page won't load — that's normal.
 8. Copy the token from the address bar (the part between `access_token=` and `&`) into the config as `twitch.token`. The `oauth:` prefix is optional — it's stripped automatically.
 
-### Getting the reward ID
+### Creating the reward
 
-Twitch never shows the reward's UUID anywhere in the UI. Get it with a helper script:
+The reward is created by the app itself, with your app's client ID — this is
+what lets it read and fulfill redemptions later (see the note in
+[How it works](#how-it-works)).
 
-1. Create the reward in Creator Dashboard → Viewer Rewards → Channel Points Rewards.
-2. Fill in `channel`, `client_id` and `token` in `config.toml` (see [Configuration](#configuration)).
-3. Run:
+1. Fill in `channel`, `client_id` and `token` in `config.toml` (see [Configuration](#configuration)).
+2. Run:
 
    ```bash
-   python scripts/list_rewards.py    # Windows: py scripts/list_rewards.py
+   python main.py --create-reward    # Windows exe: TwitchBanRoulette.exe --create-reward
    ```
 
-4. You'll see lines like `123e4567-...  My reward`.
-5. Copy the UUID of your reward into `twitch.reward_id`.
+3. The command prints the reward's UUID — copy it into `twitch.reward_id`:
+
+   ```
+   Copy into config.toml:
+   reward_id = "123e4567-..."
+   ```
+
+If a reward named "Play the roulette" already exists, the command finds it and prints its ID instead of failing. To list all your rewards (for example, to double-check manually), run `--list-rewards`.
 
 ## Configuration
 

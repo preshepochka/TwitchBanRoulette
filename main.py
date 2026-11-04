@@ -9,8 +9,8 @@ from audio import Audio
 from bot import Bot
 from config_manager import ConfigManager
 from config_schema import LoggingConfig
-from modes import (config_path, generate_placeholders, list_rewards,
-                   run_app_test, run_demo, run_renderer_test)
+from modes import (config_path, create_reward, generate_placeholders,
+                   list_rewards, run_app_test, run_demo, run_renderer_test)
 from renderer import Renderer
 from roulette import Roulette
 
@@ -56,6 +56,9 @@ def _parse_args(argv=None) -> argparse.Namespace:
                        help="(re)create placeholder assets")
     modes.add_argument("--list-rewards", action="store_true",
                        help="print channel-points reward IDs")
+    modes.add_argument("--create-reward", action="store_true",
+                       help="create the roulette reward via the API "
+                            "(dashboard-made rewards cannot be managed)")
     parser.add_argument("--force", action="store_true",
                         help="with --placeholders: overwrite existing files")
     args = parser.parse_args(argv)
@@ -106,6 +109,8 @@ def main(argv=None):
         generate_placeholders(force=args.force)
     elif args.list_rewards:
         list_rewards()
+    elif args.create_reward:
+        create_reward()
     else:
         _run_bot()
 

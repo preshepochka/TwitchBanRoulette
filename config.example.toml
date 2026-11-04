@@ -11,8 +11,9 @@ client_id = "your_client_id"
 # OAuth user token (see README). The "oauth:" prefix is optional.
 token = "oauth:your_token_here"
 # UUID of the channel points reward that triggers the roulette.
-# Twitch doesn't show it in the UI; list your rewards with:
-#   python3 scripts/list_rewards.py
+# Create the reward with the app itself (python main.py --create-reward),
+# then paste the printed UUID here. A dashboard-made reward will 403:
+# Twitch only lets the creating client manage its redemptions.
 reward_id = "your_reward_id"
 
 [window]

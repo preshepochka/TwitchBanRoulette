@@ -18,7 +18,7 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
   - `python3 scripts/test_app.py` (or `main.py --test`) — full pipeline against `FakeBot` using the real `config.toml` (auto-redemptions, no Twitch traffic, opens a window).
   - `python3 scripts/test_renderer.py` (or `main.py --renderer`) — renderer only; Space triggers a spin.
   - `main.py --placeholders [--force]` — regenerate placeholder assets next to the app root; existing files are kept without `--force`.
-  - `main.py --list-rewards` — prints channel-points reward IDs (to fill `twitch.reward_id`, needs real credentials); `fake_bot.py` — the bot stub the modes use.
+  - `main.py --list-rewards` — prints channel-points reward IDs (needs real credentials); `main.py --create-reward` — creates the roulette reward via the API (dashboard-made rewards 403 on redemption management); `fake_bot.py` — the bot stub the modes use.
 - Quick static check with no setup: `python3 -m compileall -q .`
 - `scripts/test_app.py` is the reference for how `App`/`Roulette`/`Renderer` connect; `main.py` shows the real wiring with `Bot`. `main.py` logs a startup banner (python/pygame versions) and pauses on fatal errors so double-clicked Windows launches stay readable.
 
@@ -42,9 +42,9 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
 ## Twitch integration
 
 - Pure Helix REST polling — no IRC or EventSub. A daemon thread polls UNFULFILLED redemptions every 2s (`bot.POLL_INTERVAL`), dedupes by redemption id, and pushes to a `Queue` that `App` drains between frames (a new spin only starts when the renderer is IDLE).
-- `reroll` never reaches Twitch: App re-spins the same redemption (capped at `MAX_REROLL_CHAIN`), fulfillment happens only after the final outcome.
+- `reroll` never reaches Twitch: App re-spins the same redemption (capped at `MAX_REROLL_CHAIN`), fulfillment happens only after the final outcome. The reward MUST be created with the app's own client_id (`--create-reward`): Twitch ties redemption management to the creating client, dashboard-created rewards give 403.
 - `Bot.start()` resolves the broadcaster id eagerly and fails fast on a bad channel/token. Action/fulfill failures are logged, not raised — one bad request doesn't kill the stream loop.
-- Auth: user OAuth token in `twitch.token` (the `oauth:` prefix is stripped automatically) plus app `client_id`. `twitch.reward_id` is a UUID not shown anywhere in the Twitch UI — get it via `scripts/list_rewards.py`. `poll` needs the `channel:manage:polls` scope, `vip_add`/`vip_remove` need `channel:manage:vips` (README auth URL already includes both).
+- Auth: user OAuth token in `twitch.token` (the `oauth:` prefix is stripped automatically) plus app `client_id`. `twitch.reward_id` is a UUID not shown anywhere in the Twitch UI — get it via `main.py --create-reward` or `--list-rewards`. `poll` needs the `channel:manage:polls` scope, `vip_add`/`vip_remove` need `channel:manage:vips` (README auth URL already includes both).
 
 ## Conventions
 

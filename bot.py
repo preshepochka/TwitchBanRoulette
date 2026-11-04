@@ -59,10 +59,20 @@ class Bot:
                                "re-authorize using the link in README "
                                "('Getting a token') and update twitch.token.")
                 elif resp_.status_code == 403:
-                    detail += ("\nHINT: the token lacks the required scope — "
-                               "re-authorize using the link in README "
-                               "('Getting a token'); copy the whole URL, it "
-                               "lists every scope the app needs.")
+                    low = (resp_.text or "").lower()
+                    if "custom reward" in low and "client" in low:
+                        detail += ("\nHINT: this reward was created in the "
+                                   "Creator Dashboard, and Twitch only lets "
+                                   "the creating client manage its "
+                                   "redemptions. Create the reward through "
+                                   "this app instead: run with --create-reward "
+                                   "(see README).")
+                    else:
+                        detail += ("\nHINT: the token lacks the required "
+                                   "scope — re-authorize using the link in "
+                                   "README ('Getting a token'); copy the "
+                                   "whole URL, it lists every scope the app "
+                                   "needs.")
             raise TwitchError(f"{method} {url}: {e}{detail}") from e
         return resp.json()
 
@@ -107,6 +117,27 @@ class Bot:
         data = self._request("GET", "/channel_points/custom_rewards",
                              params={"broadcaster_id": self.get_broadcaster_id()})
         return data["data"]
+
+    def create_reward(self, title: str, cost: int,
+                      prompt: str = "") -> str:
+        """Create the reward with THIS app's client_id.
+
+        Rewards created in the Creator Dashboard belong to the dashboard
+        client, and Twitch refuses to let any other client read redemptions
+        of such rewards (403) — so the reward must be created via the API.
+        Requires the channel:manage:redemptions scope.
+        """
+        bid = self.get_broadcaster_id()
+        body: dict = {"title": title, "cost": cost}
+        if prompt:
+            body["prompt"] = prompt
+        data = self._request("POST", "/channel_points/custom_rewards",
+                             params={"broadcaster_id": bid}, json=body)
+        try:
+            return data["data"][0]["id"]
+        except (KeyError, IndexError, TypeError) as e:
+            raise TwitchError(
+                f"unexpected reward creation response: {data}") from e
 
     def fetch_pending(self) -> list[dict]:
         data = self._request("GET", "/channel_points/custom_rewards/redemptions",
