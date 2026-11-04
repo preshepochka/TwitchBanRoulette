@@ -88,7 +88,8 @@ def _run_bot() -> None:
                         audio)
     roulette = Roulette(cfg.outcomes, cfg.window, cfg.roulette)
 
-    app = App(cfg, bot, roulette, renderer, audio)
+    app = App(cfg, bot, roulette, renderer, audio,
+              config_dir=manager.config_path.parent)
     app.run()
 
 

@@ -77,6 +77,23 @@ class HighlightStyle(StrictModel):
     radius: int = Field(default=8, ge=0)
 
 
+EffectName = Literal["none", "pulse", "shake", "confetti"]
+
+
+class ConfettiStyle(StrictModel):
+    count: int = Field(default=120, ge=0)
+    colors: list[tuple[int, int, int]] = Field(
+        default_factory=lambda: [(255, 80, 80), (80, 200, 255),
+                                 (255, 220, 80), (120, 255, 120)])
+
+    @field_validator("colors")
+    @classmethod
+    def _colors_range(cls, v):
+        for c in v:
+            _validate_rgb(c)
+        return v
+
+
 class WindowConfig(StrictModel):
     width: int = Field(gt=0)
     height: int = Field(gt=0)
@@ -90,6 +107,8 @@ class WindowConfig(StrictModel):
     result_hold: float = Field(default=3.0, ge=0)
     highlight: HighlightStyle = Field(default_factory=HighlightStyle)
     background: Background = Field(default_factory=ChromaBackground)
+    winner_effect: EffectName = "none"
+    confetti: ConfettiStyle = Field(default_factory=ConfettiStyle)
 
     @field_validator("chroma_key")
     @classmethod
@@ -208,6 +227,10 @@ class Outcome(StrictModel):
     weight: float = Field(gt=0)
     sound: Variants | None = None
     sound_volume: float = Field(default=1.0, ge=0, le=1)
+    # Animated overlay (gif/webp/apng) shown over the window on win.
+    animation: str | None = None
+    # Built-in winner effect; None -> window.winner_effect applies.
+    effect: EffectName | None = None
     action: Action
 
     _check = field_validator("sound")(_variants_validator)

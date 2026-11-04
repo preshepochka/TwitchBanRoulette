@@ -55,6 +55,10 @@ class ConfigManager:
         if isinstance(bg, ImageBackground) and not (base / bg.image).exists():
             log.error("window.background: image not found: %s", bg.image)
             ok = False
+        for name, o in cfg.outcomes.items():
+            if o.animation and not (base / o.animation).exists():
+                log.error("%s: animation not found: %s", name, o.animation)
+                ok = False
         if cfg.sounds.enabled:
             for key in ("spin", "tick", "result"):
                 for p in _missing(base, getattr(cfg.sounds, key)):

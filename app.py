@@ -36,7 +36,8 @@ class ScheduledTask:
 
 
 class App:
-    def __init__(self, config, bot, roulette, renderer, audio):
+    def __init__(self, config, bot, roulette, renderer, audio,
+                 config_dir=None):
         self.bot = bot
         self.roulette = roulette
         self.renderer = renderer
@@ -45,6 +46,8 @@ class App:
         self._current: tuple | None = None
         self._pending_polls: list[PendingPoll] = []
         self._scheduled: list[ScheduledTask] = []
+        self._animation_cache: dict[str, object] = {}
+        self._config_dir = config_dir
 
     def run(self):
         self.bot.start()
@@ -76,8 +79,24 @@ class App:
 
     def _start_spin(self, redemption: dict, rerolls: int) -> None:
         plan = self.roulette.generate_spin()
-        self.renderer.start_spin(plan.sequence, plan.winner_index)
+        outcome = self.outcomes[plan.winner_name]
+        self.renderer.start_spin(
+            plan.sequence, plan.winner_index,
+            animation=self._outcome_animation(outcome),
+            effect=outcome.effect)
         self._current = (redemption, plan, rerolls)
+
+    def _outcome_animation(self, outcome):
+        path = getattr(outcome, "animation", None)
+        if not path or self._config_dir is None:
+            return None
+        key = str(path)
+        if key not in self._animation_cache:
+            from animations import load_animation
+            self._animation_cache[key] = load_animation(
+                self._config_dir / path,
+                (self.renderer.width, self.renderer.height))
+        return self._animation_cache[key]
 
     def _apply_consequence(self):
         if self._current is None:

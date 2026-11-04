@@ -1,4 +1,5 @@
 import logging
+import random
 import math
 import struct
 import sys
@@ -11,8 +12,8 @@ from app import App
 from audio import Audio
 from bot import Bot, TwitchError
 from config_manager import ConfigManager
-from config_schema import (BanAction, Config, MessageAction, Outcome,
-                           PollAction, RerollAction, SoundAction,
+from config_schema import (AnnounceAction, BanAction, Config, MessageAction,
+                           Outcome, PollAction, RerollAction, SoundAction,
                            SoundConfig, TimeoutAction, VipAddAction,
                            WindowConfig)
 from fake_bot import FakeBot
@@ -74,21 +75,24 @@ def run_demo() -> None:
         overlay=str(overlay),
     )
     sounds = SoundConfig(
-        spin="assets/sounds/spin.wav",
-        tick="assets/sounds/tick.wav",
-        result="assets/sounds/result.wav",
+        spin=["assets/sounds/spin.wav"],
+        tick=["assets/sounds/tick.wav"],
+        result=["assets/sounds/result.wav"],
     )
     outcomes = {
         "Timeout": Outcome(image=str(assets / "cards/timeout.png"), weight=25,
                            action=TimeoutAction(duration=60)),
         "Ban": Outcome(image=str(assets / "cards/ban.png"), weight=5,
                        action=BanAction()),
-        "Message": Outcome(image=str(assets / "cards/message.png"), weight=20,
-                           action=MessageAction(text="{user}, тебе повезло")),
+        "Message": Outcome(image=str(assets / "cards/message.png"), weight=18,
+                           action=MessageAction(text=[
+                               "{user}, тебе повезло",
+                               "Рулетка милосердна, {user}",
+                           ])),
         "Reroll": Outcome(image=str(assets / "cards/reroll.png"), weight=10,
                           sound="assets/sounds/tick.wav",
                           action=RerollAction()),
-        "Poll": Outcome(image=str(assets / "cards/poll.png"), weight=15,
+        "Poll": Outcome(image=str(assets / "cards/poll.png"), weight=12,
                         action=PollAction(title="Куда идём вечером?",
                                           choices=["Баня", "Мут"],
                                           duration=15,
@@ -97,8 +101,15 @@ def run_demo() -> None:
                                               "Мут": MessageAction(
                                                   text="{user} избежал бани"),
                                           })),
-        "Vip": Outcome(image=str(assets / "cards/vip.png"), weight=15,
-                       action=VipAddAction()),
+        "Vip": Outcome(image=str(assets / "cards/vip.png"), weight=12,
+                       action=VipAddAction(duration=120)),
+        "Announce": Outcome(image=str(assets / "cards/vip.png"), weight=8,
+                            animation=str(assets / "animations/celebrate.gif"),
+                            effect="confetti",
+                            action=AnnounceAction(
+                                text=["{user} выжил в рулетке!",
+                                      "Розыгрыш для {user} завершён"],
+                                color="purple")),
         "Airhorn": Outcome(image=str(assets / "cards/airhorn.png"), weight=10,
                            action=SoundAction(
                                sound="assets/sounds/airhorn.wav")),
@@ -111,7 +122,8 @@ def run_demo() -> None:
     roulette = Roulette(cfg.outcomes, cfg.window, cfg.roulette)
     print("Demo: auto-redemptions every 5s, Space — manual spin.")
 
-    app = App(cfg, FakeBot(every=5.0), roulette, renderer, audio)
+    app = App(cfg, FakeBot(every=5.0), roulette, renderer, audio,
+              config_dir=app_root())
     app.run()
 
 
@@ -149,7 +161,8 @@ def run_app_test() -> None:
                         manager.overlay_path(), manager.background_path(),
                         audio)
     roulette = Roulette(cfg.outcomes, cfg.window, cfg.roulette)
-    app = App(cfg, FakeBot(every=6.0), roulette, renderer, audio)
+    app = App(cfg, FakeBot(every=6.0), roulette, renderer, audio,
+              config_dir=manager.config_path.parent)
     app.run()
 
 
@@ -210,6 +223,8 @@ def generate_placeholders(force: bool = False) -> None:
                         lambda p, f=freq, s=secs: _make_sound(p, f, s)))
     targets.append((assets / "overlay.png",
                     lambda p: _make_overlay(p, width, height)))
+    targets.append((assets / "animations/celebrate.gif",
+                    lambda p: _make_animation(p, width, height)))
 
     made, skipped = 0, 0
     for path, maker in targets:
@@ -269,3 +284,26 @@ def _make_overlay(path: Path, w: int, h: int) -> None:
                         [(cx - 20, 0), (cx + 20, 0), (cx, 38)])
     pygame.draw.rect(surf, (255, 255, 255, 200), surf.get_rect(), 4)
     pygame.image.save(surf, str(path))
+
+
+def _make_animation(path: Path, w: int, h: int) -> None:
+    """Placeholder win animation: falling confetti, 8 frames."""
+    from PIL import Image
+
+    frames = []
+    for step in range(8):
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        surf.fill((0, 0, 0, 0))
+        palette = [(255, 80, 80), (80, 200, 255), (255, 220, 80),
+                   (120, 255, 120), (220, 120, 255)]
+        random.seed(step)
+        for _ in range(60):
+            x = random.randint(0, w - 6)
+            y = random.randint(0, h - 4)
+            pygame.draw.rect(surf, (*random.choice(palette), 255),
+                             (x, y, 6, 4))
+        raw = pygame.image.tostring(surf, "RGBA")
+        frames.append(Image.frombytes("RGBA", (w, h), raw))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frames[0].save(str(path), format="GIF", save_all=True,
+                   append_images=frames[1:], duration=80, loop=0)
