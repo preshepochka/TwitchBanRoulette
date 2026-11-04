@@ -51,9 +51,18 @@ class Bot:
             detail = ""
             resp_ = getattr(e, "response", None)
             if resp_ is not None:
-                body = resp_.text[:300]
+                body = (resp_.text or "")[:300]
                 if body:
                     detail = f" | body: {body}"
+                if resp_.status_code == 401:
+                    detail += ("\nHINT: the token is invalid or expired — "
+                               "re-authorize using the link in README "
+                               "('Getting a token') and update twitch.token.")
+                elif resp_.status_code == 403:
+                    detail += ("\nHINT: the token lacks the required scope — "
+                               "re-authorize using the link in README "
+                               "('Getting a token'); copy the whole URL, it "
+                               "lists every scope the app needs.")
             raise TwitchError(f"{method} {url}: {e}{detail}") from e
         return resp.json()
 
