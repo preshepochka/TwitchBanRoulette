@@ -1,4 +1,5 @@
 import logging
+import random
 from pathlib import Path
 
 import pygame
@@ -44,17 +45,23 @@ class Audio:
             self._cache[path] = sound
         return sound
 
-    def play(self, path: str | None, volume: float = 1.0) -> None:
+    def play(self, path: str | list[str] | None, volume: float = 1.0) -> None:
+        """Play one sound; a list is a pool of variants (random pick)."""
         if not self._ok or path is None:
             return
+        if isinstance(path, list):
+            path = random.choice(path)
         sound = self._get(path)
         if sound is not None:
             sound.set_volume(min(1.0, self._master * volume))
             sound.play()
 
-    def play_loop(self, path: str | None, volume: float = 1.0) -> None:
+    def play_loop(self, path: str | list[str] | None,
+                  volume: float = 1.0) -> None:
         if not self._ok or path is None:
             return
+        if isinstance(path, list):
+            path = random.choice(path)
         sound = self._get(path)
         if sound is None:
             return

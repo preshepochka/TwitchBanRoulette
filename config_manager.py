@@ -4,9 +4,17 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from config_schema import Config, ImageBackground, SoundAction
+from config_schema import Config, ImageBackground, SoundAction, Variants
 
 log = logging.getLogger(__name__)
+
+
+def _missing(base: Path, value: Variants | None) -> list[str]:
+    """Files referenced by a str-or-list value that don't exist."""
+    if value is None:
+        return []
+    paths = [value] if isinstance(value, str) else value
+    return [p for p in paths if not (base / p).exists()]
 
 
 class ConfigManager:
@@ -49,19 +57,17 @@ class ConfigManager:
             ok = False
         if cfg.sounds.enabled:
             for key in ("spin", "tick", "result"):
-                p = getattr(cfg.sounds, key)
-                if p and not (base / p).exists():
+                for p in _missing(base, getattr(cfg.sounds, key)):
                     log.error("sounds.%s: file not found: %s", key, p)
                     ok = False
             for name, o in cfg.outcomes.items():
-                if o.sound and not (base / o.sound).exists():
-                    log.error("%s: sound not found: %s", name, o.sound)
+                for p in _missing(base, o.sound):
+                    log.error("%s: sound not found: %s", name, p)
                     ok = False
-                if (isinstance(o.action, SoundAction)
-                        and not (base / o.action.sound).exists()):
-                    log.error("%s: action sound not found: %s",
-                              name, o.action.sound)
-                    ok = False
+                if isinstance(o.action, SoundAction):
+                    for p in _missing(base, o.action.sound):
+                        log.error("%s: action sound not found: %s", name, p)
+                        ok = False
         return ok
 
     def load(self) -> Config:

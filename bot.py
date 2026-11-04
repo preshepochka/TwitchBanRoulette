@@ -27,6 +27,7 @@ class Bot:
         "channel:manage:polls": "poll action",
         "channel:manage:vips": "vip_add/vip_remove actions",
         "user:write:chat": "message action",
+        "moderator:manage:announcements": "announce action",
     }
 
     def __init__(self, client_id: str, token: str, channel: str, reward_id: str):
@@ -179,6 +180,12 @@ class Bot:
         self._request("POST", "/chat/messages",
                       json={"broadcaster_id": bid, "sender_id": bid,
                             "message": text})
+
+    def send_announcement(self, text: str, color: str = "primary") -> None:
+        bid = self.get_broadcaster_id()
+        self._request("POST", "/chat/announcements",
+                      params={"broadcaster_id": bid, "moderator_id": bid},
+                      json={"message": text, "color": color})
 
     def fulfill_redemption(self, redemption_id: str) -> None:
         self._request("PATCH", "/channel_points/custom_rewards/redemptions",

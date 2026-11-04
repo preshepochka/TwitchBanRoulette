@@ -26,6 +26,15 @@ class PendingPoll:
     attempts: int = 0
 
 
+@dataclass
+class ScheduledTask:
+    """A bot action to run when its time comes (e.g. remove a timed VIP)."""
+    due_ms: float
+    user_id: str
+    user_name: str
+    label: str
+
+
 class App:
     def __init__(self, config, bot, roulette, renderer, audio):
         self.bot = bot
@@ -35,6 +44,7 @@ class App:
         self.outcomes = config.outcomes
         self._current: tuple | None = None
         self._pending_polls: list[PendingPoll] = []
+        self._scheduled: list[ScheduledTask] = []
 
     def run(self):
         self.bot.start()
@@ -46,6 +56,7 @@ class App:
 
     def _step(self):
         self._check_pending_polls()
+        self._run_due_tasks()
 
         if self.renderer.state is RenderState.IDLE:
             self._try_start_spin()
@@ -94,6 +105,10 @@ class App:
                 self._start_poll(action, redemption)
             except TwitchError as e:
                 log.error("poll creation failed: %s", e)
+        elif isinstance(action, VipAddAction) and action.duration:
+            if apply(self.bot, action, redemption["user_id"],
+                     redemption["user_name"]):
+                self._schedule_remove_vip(action.duration, redemption)
         else:
             apply(self.bot, action, redemption["user_id"],
                   redemption["user_name"])
@@ -109,6 +124,31 @@ class App:
             self.bot.fulfill_redemption(redemption["id"])
         except TwitchError as e:
             log.error("fulfill failed for %s: %s", redemption["id"], e)
+
+    def _schedule_remove_vip(self, seconds: int, redemption: dict) -> None:
+        now = time.monotonic() * 1000
+        self._scheduled.append(ScheduledTask(
+            due_ms=now + seconds * 1000,
+            user_id=redemption["user_id"],
+            user_name=redemption["user_name"],
+            label="timed vip",
+        ))
+        log.info("vip granted to %s for %d s", redemption["user_name"],
+                 seconds)
+
+    def _run_due_tasks(self) -> None:
+        if not self._scheduled:
+            return
+        now = time.monotonic() * 1000
+        for task in [t for t in self._scheduled if now >= t.due_ms]:
+            self._scheduled.remove(task)
+            try:
+                self.bot.remove_vip(task.user_id)
+                log.info("%s expired for %s — vip removed", task.label,
+                         task.user_name)
+            except TwitchError as e:
+                log.error("failed to remove expired %s for %s: %s",
+                          task.label, task.user_name, e)
 
     def _start_poll(self, action: PollAction, redemption: dict) -> None:
         poll_id = self.bot.create_poll(action.title, list(action.choices),

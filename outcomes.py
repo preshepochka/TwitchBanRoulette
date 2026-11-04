@@ -1,8 +1,9 @@
 import logging
 
 from bot import TwitchError
-from config_schema import (Action, BanAction, MessageAction, NothingAction,
-                           TimeoutAction, VipAddAction, VipRemoveAction)
+from config_schema import (Action, AnnounceAction, BanAction, MessageAction,
+                           NothingAction, TimeoutAction, VipAddAction,
+                           VipRemoveAction, pick)
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +22,11 @@ def apply(bot, action: Action, user_id: str, user_name: str) -> bool:
         elif isinstance(action, BanAction):
             bot.ban_user(user_id)
         elif isinstance(action, MessageAction):
-            bot.send_chat_message(action.text.replace("{user}", user_name))
+            bot.send_chat_message(
+                pick(action.text).replace("{user}", user_name))
+        elif isinstance(action, AnnounceAction):
+            bot.send_announcement(
+                pick(action.text).replace("{user}", user_name), action.color)
         elif isinstance(action, VipAddAction):
             bot.add_vip(user_id)
         elif isinstance(action, VipRemoveAction):

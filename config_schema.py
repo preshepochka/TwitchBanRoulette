@@ -1,7 +1,31 @@
+import random
 from typing import Annotated, Literal, Union
 
 from pydantic import (BaseModel, ConfigDict, Field, field_validator,
                       model_validator)
+
+# A config value that may be a single string or a list of variants
+# (one is picked at random when used).
+Variants = Union[str, list[str]]
+
+
+def pick(variant: Variants | None) -> str | None:
+    """Resolve a str-or-list config value to one string (random choice)."""
+    if variant is None:
+        return None
+    if isinstance(variant, str):
+        return variant
+    if not variant:
+        raise ValueError("variant list must not be empty")
+    return random.choice(variant)
+
+
+def _variants_validator(v):
+    if isinstance(v, list) and not v:
+        raise ValueError("list must contain at least one item")
+    if isinstance(v, list) and not all(isinstance(x, str) and x.strip() for x in v):
+        raise ValueError("every variant must be a non-empty string")
+    return v
 
 
 class StrictModel(BaseModel):
@@ -86,9 +110,11 @@ class RouletteConfig(StrictModel):
 class SoundConfig(StrictModel):
     enabled: bool = True
     volume: float = Field(default=1.0, ge=0, le=1)
-    spin: str | None = None
-    tick: str | None = None
-    result: str | None = None
+    spin: Variants | None = None
+    tick: Variants | None = None
+    result: Variants | None = None
+
+    _check = field_validator("spin", "tick", "result")(_variants_validator)
 
 
 class LoggingConfig(StrictModel):
@@ -107,7 +133,9 @@ class BanAction(StrictModel):
 
 class MessageAction(StrictModel):
     type: Literal["message"] = "message"
-    text: str
+    text: Variants
+
+    _check = field_validator("text")(_variants_validator)
 
 
 class NothingAction(StrictModel):
@@ -120,21 +148,34 @@ class RerollAction(StrictModel):
 
 class VipAddAction(StrictModel):
     type: Literal["vip_add"] = "vip_add"
+    # Seconds; omit for a permanent VIP.
+    duration: int | None = Field(default=None, gt=0)
 
 
 class VipRemoveAction(StrictModel):
     type: Literal["vip_remove"] = "vip_remove"
 
 
+class AnnounceAction(StrictModel):
+    type: Literal["announce"] = "announce"
+    text: Variants
+    color: Literal["blue", "green", "orange", "purple", "primary"] = "primary"
+
+    _check = field_validator("text")(_variants_validator)
+
+
 class SoundAction(StrictModel):
     type: Literal["sound"] = "sound"
-    sound: str
+    sound: Variants
     volume: float = Field(default=1.0, ge=0, le=1)
+
+    _check = field_validator("sound")(_variants_validator)
 
 
 SimpleAction = Annotated[
     Union[TimeoutAction, BanAction, MessageAction, NothingAction,
-          RerollAction, VipAddAction, VipRemoveAction, SoundAction],
+          RerollAction, VipAddAction, VipRemoveAction, AnnounceAction,
+          SoundAction],
     Field(discriminator="type"),
 ]
 
@@ -157,7 +198,7 @@ class PollAction(StrictModel):
 Action = Annotated[
     Union[TimeoutAction, BanAction, MessageAction, NothingAction,
           RerollAction, PollAction, VipAddAction, VipRemoveAction,
-          SoundAction],
+          AnnounceAction, SoundAction],
     Field(discriminator="type"),
 ]
 
@@ -165,9 +206,11 @@ Action = Annotated[
 class Outcome(StrictModel):
     image: str
     weight: float = Field(gt=0)
-    sound: str | None = None
+    sound: Variants | None = None
     sound_volume: float = Field(default=1.0, ge=0, le=1)
     action: Action
+
+    _check = field_validator("sound")(_variants_validator)
 
 
 class Config(StrictModel):
