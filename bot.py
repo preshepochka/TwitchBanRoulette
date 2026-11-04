@@ -57,7 +57,7 @@ class Bot:
         return data["data"]
 
     def fetch_pending(self) -> list[dict]:
-        data = self._request("GET", "/channel_points/redemptions",
+        data = self._request("GET", "/channel_points/custom_rewards/redemptions",
                              params={"broadcaster_id": self.get_broadcaster_id(),
                                      "reward_id": self.reward_id,
                                      "status": "UNFULFILLED"})
@@ -97,7 +97,7 @@ class Bot:
                             "message": text})
 
     def fulfill_redemption(self, redemption_id: str) -> None:
-        self._request("PATCH", "/channel_points/redemptions",
+        self._request("PATCH", "/channel_points/custom_rewards/redemptions",
                       params={"broadcaster_id": self.get_broadcaster_id(),
                               "reward_id": self.reward_id,
                               "id": redemption_id},
@@ -138,5 +138,5 @@ class Bot:
             body["duration"] = seconds
         bid = self.get_broadcaster_id()
         self._request("POST", "/moderation/bans",
-                      json={"broadcaster_id": bid, "moderator_id": bid,
-                            "data": body})
+                      params={"broadcaster_id": bid, "moderator_id": bid},
+                      json={"data": body})
