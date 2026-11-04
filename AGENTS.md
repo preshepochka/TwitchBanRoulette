@@ -44,7 +44,7 @@ Local desktop app for streamers: viewers redeem a Twitch channel-points reward, 
 - Pure Helix REST polling — no IRC or EventSub. A daemon thread polls UNFULFILLED redemptions every 2s (`bot.POLL_INTERVAL`), dedupes by redemption id, and pushes to a `Queue` that `App` drains between frames (a new spin only starts when the renderer is IDLE).
 - `reroll` never reaches Twitch: App re-spins the same redemption (capped at `MAX_REROLL_CHAIN`), fulfillment happens only after the final outcome.
 - `Bot.start()` resolves the broadcaster id eagerly and fails fast on a bad channel/token. Action/fulfill failures are logged, not raised — one bad request doesn't kill the stream loop.
-- Auth: user OAuth token in `twitch.token` (the `oauth:` prefix is stripped automatically) plus app `client_id`. `twitch.reward_id` is a UUID not shown anywhere in the Twitch UI — get it via `scripts/list_rewards.py`. `poll` needs the `channel:manage:polls` scope, `vip_add`/`vip_remove` need `moderator:manage:vips` (README auth URL already includes both).
+- Auth: user OAuth token in `twitch.token` (the `oauth:` prefix is stripped automatically) plus app `client_id`. `twitch.reward_id` is a UUID not shown anywhere in the Twitch UI — get it via `scripts/list_rewards.py`. `poll` needs the `channel:manage:polls` scope, `vip_add`/`vip_remove` need `channel:manage:vips` (README auth URL already includes both).
 
 ## Conventions
 

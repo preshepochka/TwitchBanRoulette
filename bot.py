@@ -123,12 +123,12 @@ class Bot:
         return polls[0] if polls else {}
 
     def add_vip(self, user_id: str) -> None:
-        self._request("POST", "/moderation/vips",
+        self._request("POST", "/channels/vips",
                       params={"broadcaster_id": self.get_broadcaster_id(),
                               "user_id": user_id})
 
     def remove_vip(self, user_id: str) -> None:
-        self._request("DELETE", "/moderation/vips",
+        self._request("DELETE", "/channels/vips",
                       params={"broadcaster_id": self.get_broadcaster_id(),
                               "user_id": user_id})
 

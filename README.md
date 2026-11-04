@@ -94,10 +94,10 @@ Two things are needed from Twitch: an OAuth token and the reward ID. Register yo
 6. Build the authorization URL, replacing `YOUR_CLIENT_ID`:
 
    ```
-   https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&scope=channel%3Aread%3Aredemptions%20moderator%3Amanage%3Abanned_users%20chat%3Aread%20chat%3Aedit%20channel%3Amanage%3Apolls%20moderator%3Amanage%3Avips
+   https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&scope=channel%3Amanage%3Aredemptions%20moderator%3Amanage%3Abanned_users%20channel%3Amanage%3Apolls%20channel%3Amanage%3Avips%20user%3Awrite%3Achat
    ```
 
-   The `polls` and `vips` scopes are only needed if you plan to use the `poll` / `vip_add` / `vip_remove` actions — but including them up front saves you re-authorizing later.
+   The `polls`, `vips` and `chat` scopes are only needed if you plan to use the `poll` / `vip_add` / `vip_remove` / `message` actions — but including them up front saves you re-authorizing later.
 7. Open the URL, log in as the **broadcaster**, click *Authorize*. The browser will redirect to `localhost#access_token=...` and the page won't load — that's normal.
 8. Copy the token from the address bar (the part between `access_token=` and `&`) into the config as `twitch.token`. The `oauth:` prefix is optional — it's stripped automatically.
 
@@ -260,8 +260,8 @@ Actions (inline table, validated by `type`):
 | `{ type = "nothing" }` | — | Just show the card |
 | `{ type = "reroll" }` | — | Spin again for the same viewer; chains are capped at 8, then the redemption is closed with no effect |
 | `{ type = "poll" }` | `title`, `choices` (2–5), `duration` (15–300 s), `on_win` (optional) | Starts a Twitch poll (needs the `channel:manage:polls` scope) |
-| `{ type = "vip_add" }` | — | Grants the viewer VIP (needs `moderator:manage:vips`) |
-| `{ type = "vip_remove" }` | — | Revokes the viewer's VIP (needs `moderator:manage:vips`) |
+| `{ type = "vip_add" }` | — | Grants the viewer VIP (needs `channel:manage:vips`) |
+| `{ type = "vip_remove" }` | — | Revokes the viewer's VIP (needs `channel:manage:vips`) |
 | `{ type = "sound" }` | `sound`, `volume` (optional) | Plays a sound and does nothing else — the card itself is the show |
 
 Example of a sound-only outcome:
