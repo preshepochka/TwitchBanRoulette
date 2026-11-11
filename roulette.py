@@ -1,7 +1,10 @@
+import logging
 import random
 from dataclasses import dataclass
 
 from config_schema import Outcome, RouletteConfig, WindowConfig
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -25,6 +28,14 @@ class Roulette:
 
     def pick_winner(self) -> str:
         return random.choices(self.names, weights=self.weights, k=1)[0]
+
+    def exclude(self, names: list[str]) -> None:
+        """Drop outcomes from the draw (weights 0 — indices stay valid)."""
+        for name in names:
+            self.weights[self._index[name]] = 0.0
+        if not any(w > 0 for w in self.weights):
+            log.warning("every outcome is excluded — restoring all weights")
+            self.weights = [1.0] * len(self.names)
 
     def generate_spin(self) -> SpinPlan:
         winner_name = self.pick_winner()

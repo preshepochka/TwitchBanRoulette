@@ -1,8 +1,11 @@
 import logging
+import random
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from queue import Empty
 
+from ai import AI_BLOCK, AIClient, has_ai
 from bot import TwitchError
 from config_schema import (Action, MessageAction, PollAction, RerollAction,
                            SoundAction, VipAddAction)
@@ -36,6 +39,23 @@ class ScheduledTask:
     label: str
 
 
+def _as_list(value) -> list[str]:
+    """A str-or-list config value as a list."""
+    return [value] if isinstance(value, str) else list(value)
+
+
+def pick_text(variants) -> str:
+    """Random choice from a str-or-list value."""
+    return random.choice(_as_list(variants)) if isinstance(
+        variants, list) else variants
+
+
+def _plain_fallback(variants) -> str | None:
+    """First variant without AI blocks, or None if everything is AI."""
+    plain = [t for t in _as_list(variants) if not has_ai(t)]
+    return plain[0] if plain else None
+
+
 class App:
     def __init__(self, config, bot, roulette, renderer, audio,
                  config_dir=None):
@@ -49,6 +69,10 @@ class App:
         self._scheduled: list[ScheduledTask] = []
         self._animation_cache: dict[str, object] = {}
         self._config_dir = config_dir
+        ai_cfg = getattr(config, "ai", None)
+        self._ai_cfg = ai_cfg
+        self.ai: AIClient | None = AIClient(ai_cfg) if ai_cfg else None
+        self._ai_stripped = False
 
     def run(self):
         self.bot.start()
@@ -81,11 +105,140 @@ class App:
     def _start_spin(self, redemption: dict, rerolls: int) -> None:
         plan = self.roulette.generate_spin()
         outcome = self.outcomes[plan.winner_name]
+        action = outcome.action
+
+        # AI messages are generated BEFORE the spin starts, so the reveal
+        # and the chat message stay close together.
+        needs_ai = (has_ai(outcome.message)
+                    or (isinstance(action, MessageAction)
+                        and has_ai(action.text)))
+        resolved = None
+        if needs_ai:
+            resolved = self._resolve_ai(outcome, redemption)
+            if resolved is None:
+                self._refund_and_apologize(redemption, plan.winner_name)
+                return
+            if self.ai is not None and not self.ai.available:
+                self._disable_ai_outcomes()
+
         self.renderer.start_spin(
             plan.sequence, plan.winner_index,
             animation=self._outcome_animation(outcome),
             effect=outcome.effect)
-        self._current = (redemption, plan, rerolls)
+        self._current = (redemption, plan, rerolls, resolved)
+
+    def _resolve_ai(self, outcome, redemption) -> tuple | None:
+        """Resolve every AI block in the outcome's texts before the spin.
+
+        Returns (outcome_message, action_text) with AI blocks replaced by
+        real answers (None = not AI / absent), or None on total failure.
+        A failure falls back to a plain variant of the same text when one
+        exists; refund happens only when there is nothing to fall back to.
+        """
+        action = outcome.action
+        msg = None
+        if outcome.message is not None:
+            text = pick_text(outcome.message)
+            if has_ai(text):
+                text = self._run_ai(text, redemption)
+                if text is None:
+                    text = _plain_fallback(outcome.message)
+                    if text is None:
+                        return None
+                    log.warning("AI failed — using a plain message variant "
+                                "for %s", redemption["user_name"])
+            msg = self._substitute(text, redemption)
+
+        act_text = None
+        if isinstance(action, MessageAction) and has_ai(action.text):
+            act_text = self._run_ai(pick_text(action.text), redemption)
+            if act_text is None:
+                act_text = _plain_fallback(action.text)
+                if act_text is None:
+                    return None
+                log.warning("AI failed — using a plain action text for %s",
+                            redemption["user_name"])
+            act_text = self._substitute(act_text, redemption)
+        return msg, act_text
+
+    def _run_ai(self, text: str, redemption: dict) -> str | None:
+        """Replace each {{ai: ...}} block with an answer (None on failure)."""
+        while True:
+            m = AI_BLOCK.search(text)
+            if m is None:
+                return text
+            prompt = self._substitute(m.group(1), redemption)
+            reply = self.ai.generate(prompt)
+            if reply is None:
+                return None
+            text = text[:m.start()] + reply + text[m.end():]
+
+    def _substitute(self, text: str, redemption: dict) -> str:
+        """Replace {user}, {time}, {stream_title}, {stream_category}."""
+        info = {"time": datetime.now().strftime("%H:%M"),
+                "stream_title": "", "stream_category": ""}
+        try:
+            ch = self.bot.get_channel_info()
+            info["stream_title"] = ch.get("title", "")
+            info["stream_category"] = ch.get("category", "")
+        except TwitchError as e:
+            log.warning("channel info unavailable: %s", e)
+        return (text.replace("{user}", redemption.get("user_name", ""))
+                    .replace("{time}", info["time"])
+                    .replace("{stream_title}", info["stream_title"])
+                    .replace("{stream_category}", info["stream_category"]))
+
+    def _refund_and_apologize(self, redemption: dict, outcome_name: str) \
+            -> None:
+        """The AI had to answer but couldn't: apology + points back."""
+        log.warning("AI failed for %s — refunding %s", outcome_name,
+                    redemption["user_name"])
+        fallback = (self._ai_cfg.fallback_message if self._ai_cfg
+                    else "The AI broke down entirely... {user}, your "
+                         "points are back, the roulette is sorry!")
+        try:
+            self.bot.send_chat_message(
+                self._substitute(fallback, redemption))
+        except TwitchError as e:
+            log.error("apology message failed: %s", e)
+        try:
+            self.bot.refund_redemption(redemption["id"])
+            log.info("redemption %s refunded (%s)", redemption["id"],
+                     redemption["user_name"])
+        except TwitchError as e:
+            log.error("refund failed for %s: %s", redemption["id"], e)
+        self._disable_ai_outcomes()
+
+    def _disable_ai_outcomes(self) -> None:
+        """AI is dead for this session: strip AI variants; outcomes whose
+        texts were AI-only can't be drawn anymore."""
+        if getattr(self, "_ai_stripped", False):
+            return
+        self._ai_stripped = True
+        disabled = []
+        for name, o in self.outcomes.items():
+            dropped = False
+            if has_ai(o.message):
+                kept = [t for t in _as_list(o.message) if not has_ai(t)]
+                if kept:
+                    o.message = kept
+                    log.warning("outcome %s: AI message variants dropped",
+                                name)
+                else:
+                    o.message = None
+                    dropped = True
+            if isinstance(o.action, MessageAction) and has_ai(o.action.text):
+                kept = [t for t in _as_list(o.action.text) if not has_ai(t)]
+                if kept:
+                    o.action.text = kept
+                    log.warning("outcome %s: AI action texts dropped", name)
+                else:
+                    dropped = True
+            if dropped:
+                disabled.append(name)
+                log.warning("outcome %s disabled: it was AI-only", name)
+        if disabled:
+            self.roulette.exclude(disabled)
 
     def _outcome_animation(self, outcome):
         path = getattr(outcome, "animation", None)
@@ -102,7 +255,7 @@ class App:
     def _apply_consequence(self):
         if self._current is None:
             return
-        redemption, plan, rerolls = self._current
+        redemption, plan, rerolls, resolved = self._current
         outcome = self.outcomes[plan.winner_name]
         action = outcome.action
 
@@ -129,19 +282,33 @@ class App:
             if apply(self.bot, action, redemption["user_id"],
                      redemption["user_name"]):
                 self._schedule_remove_vip(action.duration, redemption)
+        elif isinstance(action, MessageAction) and resolved is not None \
+                and resolved[1] is not None:
+            # AI-resolved action text (already generated before the spin).
+            apply(self.bot, MessageAction(text=resolved[1]),
+                  redemption["user_id"], redemption["user_name"])
         else:
             apply(self.bot, action, redemption["user_id"],
                   redemption["user_name"])
 
-        if outcome.message is not None:
-            apply(self.bot, MessageAction(text=outcome.message),
+        if resolved is not None and resolved[0] is not None:
+            # AI-resolved outcome message.
+            apply(self.bot, MessageAction(text=resolved[0]),
                   redemption["user_id"], redemption["user_name"])
+        elif resolved is None and outcome.message is not None:
+            self._send_outcome_message(outcome, redemption)
 
         self._fulfill(redemption)
         self.audio.play(sound_path, sound_volume)
         log.info("%s -> %s (%s)", redemption["user_name"], plan.winner_name,
                  action.type)
         self._current = None
+
+    def _send_outcome_message(self, outcome, redemption: dict) -> None:
+        text = pick_text(outcome.message)
+        text = self._substitute(text, redemption)
+        apply(self.bot, MessageAction(text=text),
+              redemption["user_id"], redemption["user_name"])
 
     def _fulfill(self, redemption: dict) -> None:
         try:

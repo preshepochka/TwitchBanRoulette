@@ -238,10 +238,46 @@ class Outcome(StrictModel):
     _check = field_validator("sound", "message")(_variants_validator)
 
 
+class AIConfig(StrictModel):
+    """OpenAI-compatible chat-completion sources, tried as rolling pairs.
+
+    base_urls[i] and api_keys[i] form one source; the app starts with pair 0
+    and moves to the next pair whenever the current one fails. When every
+    pair has failed, AI variants are dropped from the roulette for the rest
+    of the session.
+    """
+    base_urls: list[str]
+    api_keys: list[str]
+    model: str
+    system_prompt: str | None = None
+    temperature: float = Field(default=1.0, ge=0, le=2)
+    max_tokens: int = Field(default=100, ge=1, le=4000)
+    timeout: float = Field(default=30.0, gt=0)
+    # Sent to chat + the redemption is refunded when the AI can't answer.
+    fallback_message: str = ("The AI broke down entirely... {user}, "
+                             "your points are back, the roulette is sorry!")
+
+    @model_validator(mode="after")
+    def _pairs_match(self):
+        if not self.base_urls or not self.api_keys:
+            raise ValueError("base_urls and api_keys must not be empty")
+        if len(self.base_urls) != len(self.api_keys):
+            raise ValueError("base_urls and api_keys must have the same "
+                             "length (they pair up by index)")
+        if any(not u.strip() for u in self.base_urls):
+            raise ValueError("base_urls must be non-empty")
+        if any(not k.strip() for k in self.api_keys):
+            raise ValueError("api_keys must be non-empty")
+        if not self.model.strip():
+            raise ValueError("model must be non-empty")
+        return self
+
+
 class Config(StrictModel):
     twitch: TwitchConfig | None = None
     window: WindowConfig
     roulette: RouletteConfig = Field(default_factory=RouletteConfig)
     sounds: SoundConfig = Field(default_factory=SoundConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    ai: AIConfig | None = None
     outcomes: dict[str, Outcome]

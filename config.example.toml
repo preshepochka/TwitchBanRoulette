@@ -49,7 +49,24 @@ overlay = "assets/overlay.png"
 #tick = "assets/sounds/tick.wav"     # click when a card passes the pointer
 #result = "assets/sounds/result.wav" # played when an outcome has no own sound
 
-# Optional logging setup.
+# AI-generated messages through any OpenAI-compatible API (optional).
+# In message texts, "{{ai: ...}}" blocks are sent to the model and replaced
+# with its reply; inside the prompt you can use {user}, {time},
+# {stream_title} and {stream_category}.
+# base_urls[i] + api_keys[i] pair up into one source: the app starts with
+# pair 0 and rolls to the next pair when the current one fails. When no
+# source answers, AI variants are dropped from the roulette until restart.
+# [ai]
+# base_urls = ["https://api.openai.com/v1", "https://openrouter.ai/api/v1"]
+# api_keys = ["sk-...", "sk-or-..."]
+# model = "gpt-4o-mini"
+# system_prompt = "You write short funny Twitch chat messages. Reply in Russian, max 2 sentences."
+# temperature = 1.0
+# max_tokens = 100
+# timeout = 30
+# fallback_message = "The AI broke down entirely... {user}, your points are back, the roulette is sorry!"
+
+ # Optional logging setup.
 [logging]
 #level = "info"            # debug | info | warning | error
 #file = "roulette.log"     # optional: also append the log to this file

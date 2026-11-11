@@ -40,6 +40,8 @@ class Bot:
         }
         self.queue: Queue = Queue()
         self._broadcaster_id: str | None = None
+        self._channel_info: dict | None = None
+        self._channel_info_at: float = 0.0
         self._running = False
 
     def _request(self, method: str, path: str, **kwargs) -> dict:
@@ -193,6 +195,28 @@ class Bot:
                               "reward_id": self.reward_id,
                               "id": redemption_id},
                       json={"status": "FULFILLED"})
+
+    def refund_redemption(self, redemption_id: str) -> None:
+        """Cancel an UNFULFILLED redemption — Twitch returns the points."""
+        self._request("PATCH", "/channel_points/custom_rewards/redemptions",
+                      params={"broadcaster_id": self.get_broadcaster_id(),
+                              "reward_id": self.reward_id,
+                              "id": redemption_id},
+                      json={"status": "CANCELED"})
+
+    def get_channel_info(self) -> dict:
+        """Stream title and category, cached for 5 minutes."""
+        now = time.monotonic()
+        if (self._channel_info is None
+                or now - self._channel_info_at > 300):
+            data = self._request("GET", "/channels",
+                                 params={"broadcaster_id":
+                                         self.get_broadcaster_id()})
+            ch = data["data"][0]
+            self._channel_info = {"title": ch.get("title") or "",
+                                  "category": ch.get("game_name") or ""}
+            self._channel_info_at = now
+        return self._channel_info
 
     def create_poll(self, title: str, choices: list[str], duration: int) -> str:
         bid = self.get_broadcaster_id()

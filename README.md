@@ -252,6 +252,29 @@ The same works for `sounds.spin` / `sounds.tick` / `sounds.result`. Every listed
 
 Priority when the winner is revealed: **action sound** (`type = "sound"`) → **outcome `sound`** → **`sounds.result`**.
 
+### `ai` — AI-generated messages
+
+Optional; without it the app never touches any AI API. Works with any OpenAI-compatible chat-completions endpoint (OpenAI, OpenRouter, local LLMs, etc.):
+
+```toml
+[ai]
+base_urls = ["https://api.openai.com/v1", "https://openrouter.ai/api/v1"]
+api_keys = ["sk-...", "sk-or-..."]   # pairs up with base_urls by index
+model = "gpt-4o-mini"
+system_prompt = "You write short funny Twitch chat messages. Reply in Russian, max 2 sentences."
+# temperature = 1.0        # 0..2
+# max_tokens = 100
+# timeout = 30             # seconds per request
+# fallback_message = "The AI broke down entirely... {user}, your points are back, the roulette is sorry!"
+```
+
+How it behaves:
+
+- `{{ai: ...}}` blocks in `message` (or a `message` action) are sent to the model; the reply replaces the block. Inside the prompt you can use `{user}`, `{time}`, `{stream_title}`, `{stream_category}`.
+- **Sources roll in pairs**: the app starts with `base_urls[0]` + `api_keys[0]`; if that source fails, the next pair is tried, and so on.
+- If **no** source answers: AI variants are dropped from every outcome for the rest of the session (outcomes whose texts were AI-only stop being drawn entirely). A restart re-checks everything.
+- If the AI had to answer but couldn't when a card was drawn, the app posts `fallback_message` to chat and **cancels the redemption — Twitch returns the viewer's points**.
+
 ### `logging`
 
 The whole section is optional — by default the program logs to the console at `info` level.
@@ -281,6 +304,18 @@ Each `[outcomes.Name]` section is one outcome: a card, its weight, an optional s
 | `sound_volume` | That sound's volume, `0.0..1.0` (default 1.0) |
 | `message` | Optional extra chat message sent when the card wins — on top of whatever `action` does; `{user}` works, accepts a list of variants |
 | `action` | What happens to the viewer — see below |
+
+In `message` (and in `{ type = "message" }` texts) you can also use `{time}` (local `HH:MM`), `{stream_title}` and `{stream_category}`, and embed an **AI request**: every `{{ai: ...}}` block is sent to the model and replaced with its reply before the message is sent:
+
+```toml
+[outcomes.Fortune]
+image = "assets/cards/message.png"
+weight = 10
+message = "{{ai: In one short funny sentence, tell {user} their fortune given that the stream is \"{stream_title}\" at {time}}}"
+action = { type = "nothing" }
+```
+
+The generation happens **before the spin starts**, so the reveal and the chat message stay close together.
 
 Actions (inline table, validated by `type`):
 
@@ -481,6 +516,7 @@ outcomes.py         applying outcome actions (timeout/ban/message/...), random v
 roulette.py         winner selection, spin plan
 renderer.py         pygame window, animation, spin/tick sounds, winner effects
 animations.py       gif/webp/apng loader for win animations (Pillow)
+ai.py               AI-generated messages via OpenAI-compatible APIs (optional)
 audio.py            sound playback (mixer wrapper)
 modes.py            debug modes (--demo/--renderer/--test/--placeholders/--list-rewards/--create-reward)
 config_manager.py   config.toml loading and validation
