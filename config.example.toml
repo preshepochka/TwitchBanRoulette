@@ -65,6 +65,9 @@ image = "assets/cards/timeout.png"
 weight = 40
 #sound = "assets/sounds/timeout.wav"  # optional: replaces sounds.result for this card
 #sound_volume = 1.0                   # 0..1
+#message = "Say goodbye, {user}"      # optional extra chat message on win
+                                      # (also a list of variants; sent on top
+                                      # of the action below)            # 0..1
 action = { type = "timeout", duration = 60 }  # duration: seconds
 
 [outcomes.Ban]

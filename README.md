@@ -279,6 +279,7 @@ Each `[outcomes.Name]` section is one outcome: a card, its weight, an optional s
 | `weight` | Relative drop weight — doesn't need to sum to 100: `40/5/55` gives the same odds as `4/0.5/5.5` |
 | `sound` | Optional sound for this card, replaces `sounds.result` |
 | `sound_volume` | That sound's volume, `0.0..1.0` (default 1.0) |
+| `message` | Optional extra chat message sent when the card wins — on top of whatever `action` does; `{user}` works, accepts a list of variants |
 | `action` | What happens to the viewer — see below |
 
 Actions (inline table, validated by `type`):

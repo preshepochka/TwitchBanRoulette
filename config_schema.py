@@ -231,9 +231,11 @@ class Outcome(StrictModel):
     animation: str | None = None
     # Built-in winner effect; None -> window.winner_effect applies.
     effect: EffectName | None = None
+    # Optional extra chat message sent on win, alongside `action`.
+    message: Variants | None = None
     action: Action
 
-    _check = field_validator("sound")(_variants_validator)
+    _check = field_validator("sound", "message")(_variants_validator)
 
 
 class Config(StrictModel):

@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from queue import Empty
 
 from bot import TwitchError
-from config_schema import Action, PollAction, RerollAction, SoundAction
+from config_schema import (Action, MessageAction, PollAction, RerollAction,
+                           SoundAction, VipAddAction)
 from outcomes import apply
 from renderer import RenderEvent, RenderState
 
@@ -131,6 +132,10 @@ class App:
         else:
             apply(self.bot, action, redemption["user_id"],
                   redemption["user_name"])
+
+        if outcome.message is not None:
+            apply(self.bot, MessageAction(text=outcome.message),
+                  redemption["user_id"], redemption["user_name"])
 
         self._fulfill(redemption)
         self.audio.play(sound_path, sound_volume)
